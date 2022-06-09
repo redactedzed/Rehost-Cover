@@ -58,13 +58,15 @@ def loop_rehost():
     global p_api_key
     global headers
     global site_ajax_page
+    global RED_api_error
+    global ptpimg_api_error
     
     #load the list of torrent ids and cover urls and cycle through them
     #check to see if there is an text file
     file_exists = os.path.exists('list.txt')
-    #if text file exists, load it, get id and url, download and save cover, reupload cover, add cover to site
+    
     if file_exists == True:
-        #open the txt 
+        #open the txt file and get the torrent group ID and cover url
         try:
             with open('list.txt',encoding='utf-8') as f:
                 for line in f:
