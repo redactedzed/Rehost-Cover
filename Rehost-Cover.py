@@ -104,10 +104,20 @@ def loop_rehost():
                                 print("--The new cover URL was added to RED")
                                 count +=1 # variable will increment every loop iteration
                             except:
-                                print("--There was an issue connection to the API. Please try again later.")
+                                print("--There was an issue connecting to the RED API. Please try again later.")
+                                print("--Logged cover skipped due to an issue connecting to the RED API..")
+                                log_name = "red-api-error"
+                                log_message = "was skipped due to an issue connecting to the RED API. Please try again later"
+                                log_outcomes(torrent_id,cover_url,log_name,log_message)
+                                RED_api_error +=1 # variable will increment every loop iteration
                                 return
                     except:    
                         print("--There was an issue rehosting the cover art to ptpimg. Please try again later.")  
+                        print("--Logged cover skipped due to an issue connecting to the ptpimg API..")
+                        log_name = "ptpimg-api-error"
+                        log_message = "was skipped due to an issue connecting to the ptpimg API. Please try again later"
+                        log_outcomes(torrent_id,cover_url,log_name,log_message)
+                        ptpimg_api_error +=1 # variable will increment every loop iteration
                         return                    
         except:
             print("--There was an issue parsing the text file and the cover could not be rehosted.")  
@@ -121,4 +131,18 @@ loop_rehost()
 # Summary text
 print("")
 print("Like a record, baby, right 'round, 'round, 'round...")
-print("This script rehosted " + str(count) + " album covers.")            
+print("This script rehosted " + str(count) + " album covers.")   
+if RED_api_error >= 1:
+    print("--Warning: There were " + str(RED_api_error) + " covers skipped do to errors with the RED api. Please try again.")
+    error_message +=1 # variable will increment if statement is true
+elif RED_api_error == 0:    
+    print("--Info: There were " + str(RED_api_error) + " covers skipped do to errors with the RED api.")
+if ptpimg_api_error >= 1:
+    print("--Warning: There were " + str(ptpimg_api_error) + " covers skipped do to errors with the ptpimg api. Please try again.")
+    error_message +=1 # variable will increment if statement is true
+elif ptpimg_api_error == 0:    
+    print("--Info: There were " + str(ptpimg_api_error) + " covers skipped do to errors with the ptpimg api.")
+if error_message >= 1:
+    print("Check the logs to see which torrents and covers had errors and what they were.")
+else:
+    print("There were no errors.")            
