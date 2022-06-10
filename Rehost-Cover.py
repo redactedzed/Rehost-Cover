@@ -8,6 +8,8 @@ import datetime # Imports functionality that lets you make timestamps
 import ptpimg_uploader # imports the tool which lets you upload to ptpimg
 import config # imports the config file where you set your API key, directories, etc
 import json # imports json
+from random import randint # Imports functionality that lets you generate a random number
+from time import sleep # Imports functionality that lets you pause your script for a set period of time
 import subprocess  # Imports functionality that let's you run command line commands in a script
 from subprocess import PIPE, Popen
 
@@ -80,6 +82,10 @@ def loop_rehost():
                     print("Rehosting:")
                     print("--The torrent ID is " + torrent_id)
                     print("--The url for the cover art is " + cover_url)
+                    if count >=1:
+                        delay = randint(1,5)  # Generate a random number of seconds
+                        print("The script is pausing for " + str(delay) + " seconds.")
+                        sleep(delay) # Delay the script randomly to reduce anti-web scraping blocks 
 
                     #assemble the command for rehosting the cover
                     the_command = "ptpimg_uploader -k  \"" + p_api_key + "\"" + " " + cover_url
@@ -89,36 +95,40 @@ def loop_rehost():
                     try:
                         with Popen(the_command, stdout=PIPE, stderr=None, shell=True) as process:
                             new_cover_url = process.communicate()[0].decode("utf-8")
-                            new_cover_url = new_cover_url.replace('\n','').replace('\r','')
-                            print("--The cover has been rehosted at " + new_cover_url)
-                            
-                            # create the ajax page and data
-                            ajax_page = site_ajax_page
-                            ajax_page = ajax_page + torrent_id   
-                            edit_message = "Automatically rehosted cover to PTPimg"    
-                            data = {'summary': edit_message,
-                                    'image': new_cover_url}
+                            # test to see if ptpimg returned a url, if not there was an error
+                            if new_cover_url != None: 
+                                new_cover_url = new_cover_url.replace('\n','').replace('\r','')
+                                print("--The cover has been rehosted at " + new_cover_url)
+                                
+                                # create the ajax page and data
+                                ajax_page = site_ajax_page
+                                ajax_page = ajax_page + torrent_id   
+                                edit_message = "Automatically rehosted cover to PTPimg"    
+                                data = {'summary': edit_message,
+                                        'image': new_cover_url}
 
-                            # replace the cover art link on RED and leave edit summary
-                            try:
-                                r = requests.post(ajax_page, data=data, headers=headers)
-                                status = r.json()
-                                if status['status'] == "success":
-                                    print("--Replacing the cover on RED was a " + str(status["status"]))
-                                    #print("--" + str(status["response"]))
-                                    count +=1 # variable will increment every loop iteration
-                                else:
-                                    print("--Replacing the cover on RED was a " + str(status["status"]))
-                                    print("--" + str(status["response"]))
-                                    RED_replace_error +=1 # variable will increment every loop iteration
-                            except:
-                                print("--There was an issue connecting to the RED API. Please try again later.")
-                                print("--Logged cover skipped due to an issue connecting to the RED API..")
-                                log_name = "red-api-error"
-                                log_message = "was skipped due to an issue connecting to the RED API. Please try again later"
-                                log_outcomes(torrent_id,cover_url,log_name,log_message)
-                                RED_api_error +=1 # variable will increment every loop iteration
-                                return
+                                # replace the cover art link on RED and leave edit summary
+                                try:
+                                    r = requests.post(ajax_page, data=data, headers=headers)
+                                    status = r.json()
+                                    if status['status'] == "success":
+                                        print("--Replacing the cover on RED was a " + str(status["status"]))
+                                        #print("--" + str(status["response"]))
+                                        count +=1 # variable will increment every loop iteration
+                                    else:
+                                        print("--Replacing the cover on RED was a " + str(status["status"]))
+                                        print("--" + str(status["response"]))
+                                        RED_replace_error +=1 # variable will increment every loop iteration
+                                except:
+                                    print("--There was an issue connecting to or interacting with the RED API. Please try again later.")
+                                    print("--Logged cover skipped due to an issue connecting to the RED API..")
+                                    log_name = "red-api-error"
+                                    log_message = "was skipped due to an issue connecting to the RED API. Please try again later"
+                                    log_outcomes(torrent_id,cover_url,log_name,log_message)
+                                    RED_api_error +=1 # variable will increment every loop iteration
+                                    return
+                            else:
+                                print("There was a problem with uploading the image to PTPimg.")
                     except:    
                         print("--There was an issue rehosting the cover art to ptpimg. Please try again later.")  
                         print("--Logged cover skipped due to an issue connecting to the ptpimg API..")
@@ -139,7 +149,12 @@ loop_rehost()
 # Summary text
 print("")
 print("Like a record, baby, right 'round, 'round, 'round...")
-print("This script rehosted " + str(count) + " album covers.")   
+print("This script rehosted " + str(count) + " album covers.")  
+if RED_replace_error >= 1:
+    print("--Warning: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.")
+    error_message +=1 # variable will increment if statement is true
+elif RED_replace_error == 0:    
+    print("--Info: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.") 
 if RED_api_error >= 1:
     print("--Warning: There were " + str(RED_api_error) + " covers skipped do to errors with the RED api. Please try again.")
     error_message +=1 # variable will increment if statement is true
