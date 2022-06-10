@@ -126,7 +126,7 @@ def loop_rehost():
                                     log_message = "was skipped due to an issue connecting to the RED API. Please try again later"
                                     log_outcomes(torrent_id,cover_url,log_name,log_message)
                                     RED_api_error +=1 # variable will increment every loop iteration
-                                    return
+                                    continue
                             else:
                                 print("There was a problem with uploading the image to PTPimg.")
                     except:    
@@ -136,10 +136,10 @@ def loop_rehost():
                         log_message = "was skipped due to an issue connecting to the ptpimg API. Please try again later"
                         log_outcomes(torrent_id,cover_url,log_name,log_message)
                         ptpimg_api_error +=1 # variable will increment every loop iteration
-                        return                    
+                        continue                  
         except:
             print("--There was an issue parsing the text file and the cover could not be rehosted.")  
-            return
+            continue
     else:            
         print("--The list of ids and album covers is missing.")  
         
