@@ -7,6 +7,7 @@ import requests # Imports the ability to make web or api requests
 import datetime # Imports functionality that lets you make timestamps
 import ptpimg_uploader # imports the tool which lets you upload to ptpimg
 import config # imports the config file where you set your API key, directories, etc
+import json # imports json
 import subprocess  # Imports functionality that let's you run command line commands in a script
 from subprocess import PIPE, Popen
 
@@ -28,6 +29,7 @@ headers = {"Authorization": r_api_key} # sets the key value pair for accessing t
 count = 0
 RED_api_error = 0
 ptpimg_api_error = 0
+RED_replace_error = 0
 error_message = 0
 
 #intro text
@@ -60,6 +62,7 @@ def loop_rehost():
     global site_ajax_page
     global RED_api_error
     global ptpimg_api_error
+    global RED_replace_error
     
     #load the list of torrent ids and cover urls and cycle through them
     #check to see if there is an text file
@@ -100,9 +103,14 @@ def loop_rehost():
                             try:
                                 r = requests.post(ajax_page, data=data, headers=headers)
                                 status = r.json()
-                                print(status)
-                                print("--The new cover URL was added to RED")
-                                count +=1 # variable will increment every loop iteration
+                                if status['status'] == "success":
+                                    print("--Replacing the cover on RED was a " + str(status["status"]))
+                                    #print("--" + str(status["response"]))
+                                    count +=1 # variable will increment every loop iteration
+                                else:
+                                    print("--Replacing the cover on RED was a " + str(status["status"]))
+                                    print("--" + str(status["response"]))
+                                    RED_replace_error +=1 # variable will increment every loop iteration
                             except:
                                 print("--There was an issue connecting to the RED API. Please try again later.")
                                 print("--Logged cover skipped due to an issue connecting to the RED API..")
