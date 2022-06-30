@@ -67,11 +67,9 @@ def rehost_cover(t_id,cov):
     global ptpimg_api_error
     global RED_replace_error
     
+    # get the variables from the loop
     torrent_id = t_id
     cover_url = cov
-    
-    print("--Function 2: The torrent ID is " + torrent_id)
-    print("--Function 2: The url for the cover art is " + cover_url)
 
     #assemble the command for rehosting the cover
     the_command = "ptpimg_uploader -k  \"" + p_api_key + "\"" + " " + cover_url
@@ -147,7 +145,7 @@ def loop_rehost():
                     print("--The url for the cover art is " + cover_url)
                     #run the rehost cover function passing it the torrent_id and cover_url
                     rehost_cover(torrent_id,cover_url)
-                    #introduce a delay 
+                    #introduce a delay after the first cover is rehosted
                     if count >=1:
                         delay = randint(1,5)  # Generate a random number of seconds
                         print("The script is pausing for " + str(delay) + " seconds.")
