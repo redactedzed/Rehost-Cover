@@ -125,8 +125,8 @@ def rehost_cover(t_id,cov):
                 except:
                     print("--The cover was missing from the internet. Please replace the image manually. If you it is there then there was an issue connecting to or interacting with the RED API. Please try again later.")
                     print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the RED API.")
-                    log_name = "red-api-error"
-                    log_message = "was missing from the internet. Please replace the image manually. If the image is there, there may have been an issue connecting to the RED API. Please try again later"
+                    log_name = "cover-missing-error"
+                    log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that there may have been an issue connecting to the RED API. If it is unstable, please try again later"
                     log_outcomes(torrent_id,cover_url,log_name,log_message)
                     RED_api_error +=1 # variable will increment every loop iteration
                     return
