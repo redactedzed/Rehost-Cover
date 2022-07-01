@@ -12,6 +12,7 @@ from random import randint # Imports functionality that lets you generate a rand
 from time import sleep # Imports functionality that lets you pause your script for a set period of time
 import subprocess  # Imports functionality that let's you run command line commands in a script
 from subprocess import PIPE, Popen
+from urllib.parse import urlparse
 
 # Before running this script install the dependencies
 # pip install ptpimg_uploader
@@ -56,6 +57,16 @@ def log_outcomes(t,c,p,m):
         log_name.write("Cover location: " + cover_url + "\n")
         log_name.write(" \n")  
         log_name.close()
+
+# A function that looks for images that have been replaced with 404 images
+def check_404(u):
+    print(u)
+#parse url string looking for certain urls
+    parsed_url = urlparse(u)
+#if found run history
+    #if history = bad url then log
+    #else continue
+#else continue
         
 # A function that rehosts the cover and adds the cover to the site        
 def rehost_cover(t_id,cov):
@@ -104,10 +115,10 @@ def rehost_cover(t_id,cov):
                         print("--" + str(status["response"]))
                         RED_replace_error +=1 # variable will increment every loop iteration
                 except:
-                    print("--There was an issue connecting to or interacting with the RED API. Please try again later.")
-                    print("--Logged cover skipped due to an issue connecting to the RED API..")
+                    print("--The cover was missing from the internet. Please replace the image manually. If you it is there then there was an issue connecting to or interacting with the RED API. Please try again later.")
+                    print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the RED API.")
                     log_name = "red-api-error"
-                    log_message = "was skipped due to an issue connecting to the RED API. Please try again later"
+                    log_message = "was missing from the internet. Please replace the image manually. If the image is there, there may have been an issue connecting to the RED API. Please try again later"
                     log_outcomes(torrent_id,cover_url,log_name,log_message)
                     RED_api_error +=1 # variable will increment every loop iteration
                     return
@@ -143,6 +154,8 @@ def loop_rehost():
                     print("Rehosting:")
                     print("--The torrent ID is " + torrent_id)
                     print("--The url for the cover art is " + cover_url)
+                    #check to see if the cover is known 404 image
+                    check_404(cover_url)
                     #run the rehost cover function passing it the torrent_id and cover_url
                     rehost_cover(torrent_id,cover_url)
                     #introduce a delay after the first cover is rehosted
@@ -172,15 +185,15 @@ if  list_error ==0:
     elif RED_replace_error == 0:    
         print("--Info: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.") 
     if RED_api_error >= 1:
-        print("--Warning: There were " + str(RED_api_error) + " covers skipped do to errors with the RED api. Please try again.")
+        print("--Warning: There were " + str(RED_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the RED api. Please try again.")
         error_message +=1 # variable will increment if statement is true
     elif RED_api_error == 0:    
-        print("--Info: There were " + str(RED_api_error) + " covers skipped do to errors with the RED api.")
+        print("--Info: There were " + str(RED_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the RED api.")
     if ptpimg_api_error >= 1:
-        print("--Warning: There were " + str(ptpimg_api_error) + " covers skipped do to errors with the ptpimg api. Please try again.")
+        print("--Warning: There were " + str(ptpimg_api_error) + " covers skipped due to errors with the ptpimg api. Please try again.")
         error_message +=1 # variable will increment if statement is true
     elif ptpimg_api_error == 0:    
-        print("--Info: There were " + str(ptpimg_api_error) + " covers skipped do to errors with the ptpimg api.")
+        print("--Info: There were " + str(ptpimg_api_error) + " covers skipped due to errors with the ptpimg api.")
     if error_message >= 1:
         print("Check the logs to see which torrents and covers had errors and what they were.")
     else:
