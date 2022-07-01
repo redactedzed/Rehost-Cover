@@ -61,8 +61,16 @@ def log_outcomes(t,c,p,m):
 # A function that looks for images that have been replaced with 404 images
 def check_404(u):
     print(u)
-#parse url string looking for certain urls
+    #list of potentially problematic hosts
+    host_list = {"i.imgur.com", "imgur.com", "tinyimg.io", "i.ibb.co"}
+    #parse url string looking for certain urls
     parsed_url = urlparse(u)
+    print(parsed_url.hostname)
+    #check parsed hostname against list
+    if parsed_url.hostname in host_list:
+        print("bad")
+    else:
+        print("good")
 #if found run history
     #if history = bad url then log
     #else continue
