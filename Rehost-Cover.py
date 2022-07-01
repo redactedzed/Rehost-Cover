@@ -24,6 +24,7 @@ log_directory = config.c_log_directory # imports the directory path to where you
 
 # Imports site and API information from config file
 site_ajax_page = config.c_site_ajax_page # imports gazelle ajax page
+collage_ajax_page = config.c_site_collage_ajax_page # imports missing cover art collage ajax page
 r_api_key = config.c_r_api_key # imports your RED api key 
 p_api_key = config.c_p_api_key # imports your ptpIMG api key 
 headers = {"Authorization": r_api_key} # sets the key value pair for accessing the RED api
@@ -57,24 +58,37 @@ def log_outcomes(t,c,p,m):
         log_name.write("Cover location: " + cover_url + "\n")
         log_name.write(" \n")  
         log_name.close()
+        
+# A function to get the final url if a url is redirected
+def final_destination(url):
+    response = requests.get(url)
+    if response.history:
+        return response.url
+    else:
+        return url        
 
 # A function that looks for images that have been replaced with 404 images
 def check_404(u):
-    print(u)
     #list of potentially problematic hosts
-    host_list = {"i.imgur.com", "imgur.com", "tinyimg.io", "i.ibb.co"}
+    host_list = {"i.imgur.com", "imgur.com", "tinyimg.io"}
     #parse url string looking for certain urls
     parsed_url = urlparse(u)
-    print(parsed_url.hostname)
     #check parsed hostname against list
     if parsed_url.hostname in host_list:
-        print("bad")
+        #if found run history
+        final_u = final_destination(u)
+        print("The url was forwarded to " + final_u)
+        #match final destination to known 404 image
+        if parsed_url.hostname == "i.imgur.com" and final_u == "https://i.imgur.com/removed.png":
+            return "404_image"
+        elif parsed_url.hostname == "imgur.com" and final_u == "https://i.imgur.com/removed.png":
+            return "404_image"
+        elif parsed_url.hostname == "tinyimg.io" and final_u == "https://tinyimg.io/notfound":
+            return "404_image"  
+        else:
+            return "not_404"
     else:
-        print("good")
-#if found run history
-    #if history = bad url then log
-    #else continue
-#else continue
+        return "not_404"
         
 # A function that rehosts the cover and adds the cover to the site        
 def rehost_cover(t_id,cov):
@@ -123,9 +137,9 @@ def rehost_cover(t_id,cov):
                         print("--" + str(status["response"]))
                         RED_replace_error +=1 # variable will increment every loop iteration
                 except:
-                    print("--The cover was missing from the internet. Please replace the image manually. If you it is there then there was an issue connecting to or interacting with the RED API. Please try again later.")
+                    print("--The cover was missing from the internet. Please replace the image manually. If the image is there, then there was an issue connecting to or interacting with the RED API. Please try again later.")
                     print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the RED API.")
-                    log_name = "cover-missing-error"
+                    log_name = "cover_missing"
                     log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that there may have been an issue connecting to the RED API. If it is unstable, please try again later"
                     log_outcomes(torrent_id,cover_url,log_name,log_message)
                     RED_api_error +=1 # variable will increment every loop iteration
@@ -145,6 +159,7 @@ def rehost_cover(t_id,cov):
 def loop_rehost():
     global count
     global list_error
+    global RED_api_error
     #load the list of torrent ids and cover urls and cycle through them
     #check to see if there is an text file
     file_exists = os.path.exists('list.txt')
@@ -156,21 +171,29 @@ def loop_rehost():
                 for line in f:
                     line_values = line.split(",")
                     torrent_id = line_values[0]
-                    cover_url = line_values[2]
+                    cover_url = line_values[1]
                     cover_url = cover_url.strip()
                     print("")
                     print("Rehosting:")
                     print("--The torrent ID is " + torrent_id)
                     print("--The url for the cover art is " + cover_url)
                     #check to see if the cover is known 404 image
-                    check_404(cover_url)
-                    #run the rehost cover function passing it the torrent_id and cover_url
-                    rehost_cover(torrent_id,cover_url)
+                    url_checked = check_404(cover_url)
+                    if url_checked == "404_image":
+                        print('--Cover is no longer on the internet.')
+                        print("--Logged missing cover, image is not on site.")
+                        log_name = "cover_missing"
+                        log_message = "cover is no longer on the internet. It was replaced with a 404 image"
+                        log_outcomes(torrent_id,cover_url,log_name,log_message)
+                        RED_api_error +=1 # variable will increment every loop iteration
+                    else:
+                        #run the rehost cover function passing it the torrent_id and cover_url
+                        rehost_cover(torrent_id,cover_url)
                     #introduce a delay after the first cover is rehosted
                     if count >=1:
                         delay = randint(1,5)  # Generate a random number of seconds
                         print("The script is pausing for " + str(delay) + " seconds.")
-                        sleep(delay) # Delay the script randomly to reduce anti-web scraping blocks    
+                        sleep(delay) # Delay the script randomly to reduce anti-web scraping blocks   
         except:
             print("--There was an issue parsing the text file and the cover could not be rehosted.")  
             list_error +=1 # variable will increment every loop iteration
