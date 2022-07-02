@@ -37,20 +37,30 @@ RED_replace_error = 0
 error_message = 0
 list_error = 0
 
-#intro text
-print("")
-print("You spin me right 'round, baby, right 'round...")
+# The main funtion that controls the flow of the script
+def main():
+    #intro text
+    print("")
+    print("You spin me right 'round, baby, right 'round...")
+
+    # Run the funtion to loop through the list.txt file and rehost the cover art               
+    loop_rehost()   
+
+    # Summary text
+    print("")
+    print("Like a record, baby, right 'round, 'round, 'round...")
+    # run summary text funtion to provide error messages
+    summary_text()
+
+
 
 # A function to log events
-def log_outcomes(t,c,p,m):
+def log_outcomes(torrent_id,cover_url,log_name,message):
     global log_directory
     script_name = "Rehost Cover Script"
+    log_name = log_name + ".txt"
     today = datetime.datetime.now()
-    log_name = p
-    torrent_id = t
-    cover_url = c
-    message = m
-    log_path = log_directory + os.sep + log_name + ".txt"
+    log_path = os.path.join(log_directory, log_name)
     with open(log_path, 'a',encoding='utf-8') as log_name:
         log_name.write("--{:%b, %d %Y}".format(today)+ " at " +"{:%H:%M:%S}".format(today)+ " from the " + script_name + ".\n")
         log_name.write("The torrent group " + torrent_id + " " + message + ".\n")
@@ -58,6 +68,38 @@ def log_outcomes(t,c,p,m):
         log_name.write("Cover location: " + cover_url + "\n")
         log_name.write(" \n")  
         log_name.close()
+        
+def summary_text():
+    global count
+    global list_error
+    global RED_replace_error
+    global RED_api_error
+    global ptpimg_api_error
+    global error_message
+    
+    print("This script rehosted " + str(count) + " album covers.")  
+    if  list_error ==0: 
+        if RED_replace_error >= 1:
+            print("--Warning: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.")
+            error_message +=1 # variable will increment if statement is true
+        elif RED_replace_error == 0:    
+            print("--Info: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.") 
+        if RED_api_error >= 1:
+            print("--Warning: There were " + str(RED_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the RED api. Please try again.")
+            error_message +=1 # variable will increment if statement is true
+        elif RED_api_error == 0:    
+            print("--Info: There were " + str(RED_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the RED api.")
+        if ptpimg_api_error >= 1:
+            print("--Warning: There were " + str(ptpimg_api_error) + " covers skipped due to errors with the ptpimg api. Please try again.")
+            error_message +=1 # variable will increment if statement is true
+        elif ptpimg_api_error == 0:    
+            print("--Info: There were " + str(ptpimg_api_error) + " covers skipped due to errors with the ptpimg api.")
+        if error_message >= 1:
+            print("Check the logs to see which torrents and covers had errors and what they were.")
+        else:
+            print("There were no errors.")           
+    else:
+        print("The was an error loading or parsing the list of torrent ids and cover urls, please check it and try again.")
         
 # A function to get the final url if a url is redirected
 def final_destination(url):
@@ -89,6 +131,21 @@ def check_404(u):
             return "not_404"
     else:
         return "not_404"
+
+# A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
+def post_to_collage(add_id):
+    global collage_ajax_page
+    global headers
+    # create the data 
+    data = {'groupids': add_id}    
+    # post to collage     
+    r = requests.post(collage_ajax_page, data=data, headers=headers)  
+    # report status
+    status = r.json()
+    if status['status'] == "success":
+        print("--Adding release to missing covers collage was a " + str(status["status"]))      
+    else:
+        print("---Adding release to missing covers collage was a " + str(status["status"]))    
         
 # A function that rehosts the cover and adds the cover to the site        
 def rehost_cover(t_id,cov):
@@ -142,6 +199,7 @@ def rehost_cover(t_id,cov):
                     log_name = "cover_missing"
                     log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that there may have been an issue connecting to the RED API. If it is unstable, please try again later"
                     log_outcomes(torrent_id,cover_url,log_name,log_message)
+                    post_to_collage(torrent_id)
                     RED_api_error +=1 # variable will increment every loop iteration
                     return
             else:
@@ -154,6 +212,15 @@ def rehost_cover(t_id,cov):
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         ptpimg_api_error +=1 # variable will increment every loop iteration
         return               
+
+# A function to introduce a random delay into the loop to reduce the chance of being blocked for web scraping.
+def loop_delay():
+    global count
+    if count >=1:
+        delay = randint(1,3)  # Generate a random number of seconds within this range
+        print("The script is pausing for " + str(delay) + " seconds.")
+        sleep(delay) # Delay the script randomly to reduce anti-web scraping blocks   
+
 
 #A function that check if text file exists, loads it, loops through the lines, get id and url
 def loop_rehost():
@@ -185,15 +252,13 @@ def loop_rehost():
                         log_name = "cover_missing"
                         log_message = "cover is no longer on the internet. It was replaced with a 404 image"
                         log_outcomes(torrent_id,cover_url,log_name,log_message)
+                        post_to_collage(torrent_id)
                         RED_api_error +=1 # variable will increment every loop iteration
                     else:
                         #run the rehost cover function passing it the torrent_id and cover_url
                         rehost_cover(torrent_id,cover_url)
                     #introduce a delay after the first cover is rehosted
-                    if count >=1:
-                        delay = randint(1,5)  # Generate a random number of seconds
-                        print("The script is pausing for " + str(delay) + " seconds.")
-                        sleep(delay) # Delay the script randomly to reduce anti-web scraping blocks   
+                    loop_delay()
         except:
             print("--There was an issue parsing the text file and the cover could not be rehosted.")  
             list_error +=1 # variable will increment every loop iteration
@@ -201,33 +266,6 @@ def loop_rehost():
     else:            
         print("--The list of ids and album covers is missing.")  
         list_error +=1 # variable will increment every loop iteration
-        
-# Run the funtion to loop through the list.txt file and rehost the cover art               
-loop_rehost()   
-
-# Summary text
-print("")
-print("Like a record, baby, right 'round, 'round, 'round...")
-print("This script rehosted " + str(count) + " album covers.")  
-if  list_error ==0: 
-    if RED_replace_error >= 1:
-        print("--Warning: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.")
-        error_message +=1 # variable will increment if statement is true
-    elif RED_replace_error == 0:    
-        print("--Info: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.") 
-    if RED_api_error >= 1:
-        print("--Warning: There were " + str(RED_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the RED api. Please try again.")
-        error_message +=1 # variable will increment if statement is true
-    elif RED_api_error == 0:    
-        print("--Info: There were " + str(RED_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the RED api.")
-    if ptpimg_api_error >= 1:
-        print("--Warning: There were " + str(ptpimg_api_error) + " covers skipped due to errors with the ptpimg api. Please try again.")
-        error_message +=1 # variable will increment if statement is true
-    elif ptpimg_api_error == 0:    
-        print("--Info: There were " + str(ptpimg_api_error) + " covers skipped due to errors with the ptpimg api.")
-    if error_message >= 1:
-        print("Check the logs to see which torrents and covers had errors and what they were.")
-    else:
-        print("There were no errors.")           
-else:
-    print("The was an error loading or parsing the list of torrent ids and cover urls, please check it and try again.")
+ 
+if __name__ == "__main__":
+    main()
