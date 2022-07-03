@@ -1,6 +1,6 @@
 # Rehost Cover Script
 # author: hypermodified
-# A python script to that will rehost a list of covers from random image hosts to ptpimg 
+# A python script to that will rehost a list of cover urls from random image hosts to ptpimg 
 
 # Import dependencies
 import os  # Imports functionality that let's you interact with your operating system
