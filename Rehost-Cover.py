@@ -38,22 +38,6 @@ RED_replace_error = 0
 error_message = 0
 list_error = 0
 
-# The main function that controls the flow of the script
-def main():
-    #intro text
-    print("")
-    print("You spin me right 'round, baby, right 'round...")
-
-    # Run the function to loop through the list.txt file and rehost the cover art               
-    loop_rehost()   
-
-    # Summary text
-    print("")
-    print("Like a record, baby, right 'round, 'round, 'round...")
-    # run summary text function to provide error messages
-    summary_text()
-
-
 # A function to log events
 def log_outcomes(torrent_id,cover_url,log_name,message):
     global log_directory
@@ -106,9 +90,9 @@ def site_check(url):
     try:
         request = requests.get(url) #Here is where im getting the error
         if request.status_code == 200:
-            return "site_exists"
+            return True
     except:
-        return "no_site"
+        return False
         
 # A function to get the final url if a url is redirected
 def final_destination(url):
@@ -131,15 +115,15 @@ def check_404(url):
         print("--The url was forwarded to " + final_url)
         #match final destination to known 404 image
         if parsed_url.hostname == "i.imgur.com" and final_url == "https://i.imgur.com/removed.png":
-            return "404_image"
+            return True
         elif parsed_url.hostname == "imgur.com" and final_url == "https://i.imgur.com/removed.png":
-            return "404_image"
+            return True
         elif parsed_url.hostname == "tinyimg.io" and final_url == "https://tinyimg.io/notfound":
-            return "404_image"  
+            return True
         else:
-            return "not_404"
+            return False
     else:
-        return "not_404"
+        return False
 
 # A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
 def post_to_collage(add_id):
@@ -244,19 +228,19 @@ def url_condition_check(torrent_id,cover_url):
     global RED_api_error
     #check to see if the site exists
     site_exists = site_check(cover_url)
-    if site_exists == "no_site":
+    if site_exists == False:
         print('--Cover is no longer on the internet. The site that hosted it is gone.')
         print("--Logged missing cover, site no longer exists.")
         log_name = "cover_missing"
-        log_message = "cover is no longer on the internet"
+        log_message = "cover is no longer on the internet. The site that hosted it is gone"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         RED_api_error +=1 # variable will increment every loop iteration
         post_to_collage(torrent_id)
-        return "bad"
+        return False
     else:    
         #check to see if the cover is known 404 image
         url_checked = check_404(cover_url)
-        if url_checked == "404_image":
+        if url_checked == True:
             print('--Cover is no longer on the internet. It was replaced with a 404 image.')
             print("--Logged missing cover, image is not on site.")
             log_name = "cover_missing"
@@ -265,9 +249,9 @@ def url_condition_check(torrent_id,cover_url):
             RED_api_error +=1 # variable will increment every loop iteration
             # if it is a 404 image post it to the missing covers collage
             post_to_collage(torrent_id)
-            return "bad"
+            return False
         else:
-            return "good"
+            return True
 
 #A function that check if text file exists, loads it, loops through the lines, get id and url
 def loop_rehost():
@@ -290,7 +274,7 @@ def loop_rehost():
                 print("--The torrent ID is " + torrent_id)
                 print("--The url for the cover art is " + cover_url)
                 site_condition = url_condition_check(torrent_id,cover_url)
-                if site_condition == "good":
+                if site_condition == True:
                     #run the rehost cover function passing it the torrent_id and cover_url
                     ptp_rehost_status,new_cover_url = rehost_cover(torrent_id,cover_url)
                     # trigger function to post cover to RED
@@ -311,6 +295,21 @@ def loop_rehost():
     else:            
         print("--The list of ids and album covers is missing.")  
         list_error +=1 # variable will increment every loop iteration
+        
+# The main function that controls the flow of the script
+def main():
+    #intro text
+    print("")
+    print("You spin me right 'round, baby, right 'round...")
+
+    # Run the function to loop through the list.txt file and rehost the cover art               
+    loop_rehost()   
+
+    # Summary text
+    print("")
+    print("Like a record, baby, right 'round, 'round, 'round...")
+    # run summary text function to provide error messages
+    summary_text()        
  
 if __name__ == "__main__":
     main()
