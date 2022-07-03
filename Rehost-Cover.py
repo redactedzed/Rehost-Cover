@@ -85,15 +85,15 @@ def summary_text():
         elif RED_replace_error == 0:    
             print("--Info: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.") 
         if RED_api_error >= 1:
-            print("--Warning: There were " + str(RED_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the RED api. Please try again.")
+            print("--Warning: There were " + str(RED_api_error) + " covers skipped due to errors with the RED api. Please try again.")
             error_message +=1 # variable will increment if statement is true
         elif RED_api_error == 0:    
-            print("--Info: There were " + str(RED_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the RED api.")
+            print("--Info: There were " + str(RED_api_error) + " covers skipped due to errors with the RED api.")
         if ptpimg_api_error >= 1:
-            print("--Warning: There were " + str(ptpimg_api_error) + " covers skipped due to errors with the ptpimg api. Please try again.")
+            print("--Warning: There were " + str(ptpimg_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the ptpimg api. Please try again.")
             error_message +=1 # variable will increment if statement is true
         elif ptpimg_api_error == 0:    
-            print("--Info: There were " + str(ptpimg_api_error) + " covers skipped due to errors with the ptpimg api.")
+            print("--Info: There were " + str(ptpimg_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the ptpimg api.")
         if error_message >= 1:
             print("Check the logs to see which torrents and covers had errors and what they were.")
         else:
@@ -181,13 +181,13 @@ def post_to_RED(torrent_id,new_cover_url):
             count +=1 # variable will increment every loop iteration
         else:
             print("--Replacing the cover on RED was a " + str(status["status"]))
-            print("--" + str(status["response"]))
+            #print("--" + str(status["response"]))
             RED_replace_error +=1 # variable will increment every loop iteration
     except:
-        print("--The cover was missing from the internet. Please replace the image manually. If the image is there, then there was an issue connecting to or interacting with the RED API. Please try again later.")
+        print("--There was an issue connecting to or interacting with the RED API. Please try again later.")
         print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the RED API.")
         log_name = "cover_missing"
-        log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that there may have been an issue connecting to the RED API. If it is unstable, please try again later"
+        log_message = "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         post_to_collage(torrent_id)
         RED_api_error +=1 # variable will increment every loop iteration
@@ -207,8 +207,6 @@ def rehost_cover(torrent_id,cover_url):
         with Popen(the_command, stdout=PIPE, stderr=None, shell=True) as process:
             new_cover_url = process.communicate()[0].decode("utf-8")
             # test to see if ptpimg returned a url, if not there was an error
-            #if new_cover_url != None: 
-            #if 'new_cover_url' in locals():
             if new_cover_url:
                 new_cover_url = new_cover_url.strip()
                 print("--The cover has been rehosted at " + new_cover_url)
@@ -216,10 +214,10 @@ def rehost_cover(torrent_id,cover_url):
                 return ptp_rehost_status, new_cover_url 
             else:
                 ptp_rehost_status = "failure"
-                print("--There was a problem with uploading the image to PTPimg.")
-                print("--Logged cover skipped due to an issue uploading to the ptpimg API..")
-                log_name = "ptpimg-api-error"
-                log_message = "was skipped due to an issue connecting to the ptpimg API. Please try again later"
+                print("--The cover was missing from the internet. Please replace the image manually. If the image is there, then there was an issue connecting to or interacting with PTPimg.")
+                print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the ptpimg API.")
+                log_name = "cover_missing"
+                log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that it was skipped due to an issue connecting to the ptpimg API. Please try again later"
                 log_outcomes(torrent_id,cover_url,log_name,log_message)
                 ptpimg_api_error +=1 # variable will increment every loop iteration
                 post_to_collage(torrent_id)
@@ -231,7 +229,7 @@ def rehost_cover(torrent_id,cover_url):
         log_message = "was skipped due to an issue connecting to the ptpimg API. Please try again later"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         ptpimg_api_error +=1 # variable will increment every loop iteration
-        return               
+        return            
 
 # A function to introduce a random delay into the loop to reduce the chance of being blocked for web scraping.
 def loop_delay():
@@ -280,36 +278,36 @@ def loop_rehost():
     
     if file_exists == True:
         #open the txt file and get the torrent group ID and cover url
-        try:
-            with open('list.txt',encoding='utf-8') as f:
-                for line in f:
-                    line_values = line.split(",")
-                    torrent_id = line_values[0]
-                    cover_url = line_values[1]
-                    cover_url = cover_url.strip()
-                    print("")
-                    print("Rehosting:")
-                    print("--The torrent ID is " + torrent_id)
-                    print("--The url for the cover art is " + cover_url)
-                    site_condition = url_condition_check(torrent_id,cover_url)
-                    if site_condition == "good":
-                        #run the rehost cover function passing it the torrent_id and cover_url
-                        ptp_rehost_status,new_cover_url = rehost_cover(torrent_id,cover_url)
-                        # trigger function to post cover to RED
-                        if ptp_rehost_status == "success":
-                            post_to_RED(torrent_id,new_cover_url)
-                            #introduce a delay after the first cover is rehosted
-                            loop_delay()
-                        else:
-                            #introduce a delay after the first cover is rehosted
-                            loop_delay()
+        #try:
+        with open('list.txt',encoding='utf-8') as f:
+            for line in f:
+                line_values = line.split(",")
+                torrent_id = line_values[0]
+                cover_url = line_values[1]
+                cover_url = cover_url.strip()
+                print("")
+                print("Rehosting:")
+                print("--The torrent ID is " + torrent_id)
+                print("--The url for the cover art is " + cover_url)
+                site_condition = url_condition_check(torrent_id,cover_url)
+                if site_condition == "good":
+                    #run the rehost cover function passing it the torrent_id and cover_url
+                    ptp_rehost_status,new_cover_url = rehost_cover(torrent_id,cover_url)
+                    # trigger function to post cover to RED
+                    if ptp_rehost_status == "success":
+                        post_to_RED(torrent_id,new_cover_url)
+                        #introduce a delay after the first cover is rehosted
+                        loop_delay()
                     else:
                         #introduce a delay after the first cover is rehosted
                         loop_delay()
-        except:
+                else:
+                    #introduce a delay after the first cover is rehosted
+                    loop_delay()
+        '''except:
             print("--There was an issue parsing the text file and the cover could not be rehosted.")  
             list_error +=1 # variable will increment every loop iteration
-            return
+            return'''
     else:            
         print("--The list of ids and album covers is missing.")  
         list_error +=1 # variable will increment every loop iteration
