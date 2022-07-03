@@ -35,6 +35,7 @@ count = 0
 RED_api_error = 0
 ptpimg_api_error = 0
 RED_replace_error = 0
+cover_missing_error = 0
 error_message = 0
 list_error = 0
 
@@ -60,6 +61,7 @@ def summary_text():
     global RED_api_error
     global ptpimg_api_error
     global error_message
+    global cover_missing_error
     
     print("This script rehosted " + str(count) + " album covers.")  
     if  list_error ==0: 
@@ -78,6 +80,11 @@ def summary_text():
             error_message +=1 # variable will increment if statement is true
         elif ptpimg_api_error == 0:    
             print("--Info: There were " + str(ptpimg_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the ptpimg api.")
+        if cover_missing_error >= 1:
+            print("--Warning: There were " + str(cover_missing_error) + " covers skipped due to the covers no longer being on the internet or being 404 images.")
+            error_message +=1 # variable will increment if statement is true
+        elif cover_missing_error == 0:    
+            print("--Info: There were " + str(cover_missing_error) + " covers skipped due to the covers no longer being on the internet or being 404 images.")
         if error_message >= 1:
             print("Check the logs to see which torrents and covers had errors and what they were.")
         else:
@@ -165,7 +172,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
             count +=1 # variable will increment every loop iteration
         elif status['error'] == "No changes detected.":  
             print("--Replacing the cover on RED was a " + str(status["status"]))
-            print("--You have already replaced this cover on RED.")
+            print("--has already had it's cover replaced on RED.")
             print("--Logged cover being skipped due to already haveing been replaced.")
             log_name = "RED_api_error"
             log_message = "You have already replaced this cover on RED"
@@ -212,7 +219,7 @@ def rehost_cover(torrent_id,cover_url):
                 return ptp_rehost_status,new_cover_url,original_cover_url 
             else:
                 ptp_rehost_status = False
-                print("--The cover was missing from the internet. Please replace the image manually. If the image is there, then there was an issue connecting to or interacting with PTPimg.")
+                print("--The cover was missing from the internet. Please replace the image manually. If the image is there, then the site resisted being scraped or there was an issue connecting to or interacting with PTPimg.")
                 print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the ptpimg API.")
                 log_name = "cover_missing"
                 log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that it was skipped due to an issue connecting to the ptpimg API. Please try again later"
@@ -222,7 +229,7 @@ def rehost_cover(torrent_id,cover_url):
                 return ptp_rehost_status,cover_url,original_cover_url 
     except:    
         print("--There was an issue rehosting the cover art to ptpimg. Please try again later.")  
-        print("--Logged cover skipped due to an issue connecting to the ptpimg API..")
+        print("--Logged cover skipped due to an issue connecting to the ptpimg API.")
         log_name = "ptpimg-api-error"
         log_message = "was skipped due to an issue connecting to the ptpimg API. Please try again later"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
@@ -239,7 +246,8 @@ def loop_delay():
 
 # A function to check a series of conditions on the cover url before it is attempted to be rehosted.
 def url_condition_check(torrent_id,cover_url):
-    global RED_api_error
+    global cover_missing_error
+    
     #check to see if the site exists
     site_exists = site_check(cover_url)
     if site_exists == False:
@@ -248,7 +256,7 @@ def url_condition_check(torrent_id,cover_url):
         log_name = "cover_missing"
         log_message = "cover is no longer on the internet. The site that hosted it is gone"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
-        RED_api_error +=1 # variable will increment every loop iteration
+        cover_missing_error +=1 # variable will increment every loop iteration
         post_to_collage(torrent_id)
         return False
     else:    
@@ -260,7 +268,7 @@ def url_condition_check(torrent_id,cover_url):
             log_name = "cover_missing"
             log_message = "cover is no longer on the internet. It was replaced with a 404 image"
             log_outcomes(torrent_id,cover_url,log_name,log_message)
-            RED_api_error +=1 # variable will increment every loop iteration
+            cover_missing_error +=1 # variable will increment every loop iteration
             # if it is a 404 image post it to the missing covers collage
             post_to_collage(torrent_id)
             return False
@@ -272,9 +280,9 @@ def loop_rehost():
     global list_error
     #load the list of torrent ids and cover urls and cycle through them
     #check to see if there is an text file
-    file_exists = os.path.exists('list.txt')
+    #file_exists = os.path.exists('list.txt')
     
-    if file_exists == True:
+    if os.path.exists('list.txt'):
         #open the txt file and get the torrent group ID and cover url
         '''try:'''
         with open('list.txt',encoding='utf-8') as f:
