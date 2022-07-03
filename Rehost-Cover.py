@@ -141,12 +141,13 @@ def post_to_collage(add_id):
         print("--Adding release to missing covers collage was a failure.")      
     
 # A function that replaces the existing cover art on RED with the newly hosted one    
-def post_to_RED(torrent_id,new_cover_url):   
+def post_to_RED(torrent_id,new_cover_url,original_cover_url):   
     global count 
     global headers    
     global site_ajax_page
     global RED_api_error
     global RED_replace_error
+    cover_url = original_cover_url
     
     # create the ajax page and data
     ajax_page = site_ajax_page
@@ -161,16 +162,28 @@ def post_to_RED(torrent_id,new_cover_url):
         status = r.json()
         if status['status'] == "success":
             print("--Replacing the cover on RED was a " + str(status["status"]))
-            #print("--" + str(status["response"]))
             count +=1 # variable will increment every loop iteration
-        else:
+        elif status['error'] == "No changes detected.":  
             print("--Replacing the cover on RED was a " + str(status["status"]))
-            #print("--" + str(status["response"]))
+            print("--You have already replaced this cover on RED.")
+            print("--Logged cover being skipped due to already haveing been replaced.")
+            log_name = "RED_api_error"
+            log_message = "You have already replaced this cover on RED"
+            log_outcomes(torrent_id,cover_url,log_name,log_message)
+            RED_replace_error +=1 # variable will increment every loop iteration
+        else:
+            print("--THISReplacing the cover on RED was a " + str(status["status"]))
+            print("--There was an issue connecting to or interacting with the RED API. If it is unstable, please try again later.")
+            print("--Logged cover skipped due failed upload to RED.")
+            log_name = "RED_api_error"
+            log_message = "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
+            log_outcomes(torrent_id,cover_url,log_name,log_message)
+            post_to_collage(torrent_id)
             RED_replace_error +=1 # variable will increment every loop iteration
     except:
         print("--There was an issue connecting to or interacting with the RED API. Please try again later.")
-        print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the RED API.")
-        log_name = "cover_missing"
+        print("--Logged cover skipped due to an issue connecting to the RED API.")
+        log_name = "RED_api_error"
         log_message = "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         post_to_collage(torrent_id)
@@ -185,6 +198,7 @@ def rehost_cover(torrent_id,cover_url):
     #assemble the command for rehosting the cover
     the_command = "ptpimg_uploader -k  \"" + p_api_key + "\"" + " " + cover_url
     #print(the_command)
+    original_cover_url = cover_url
 
     # using subprocess, rehost the cover to ptpIMG
     try:
@@ -194,10 +208,10 @@ def rehost_cover(torrent_id,cover_url):
             if new_cover_url:
                 new_cover_url = new_cover_url.strip()
                 print("--The cover has been rehosted at " + new_cover_url)
-                ptp_rehost_status = "success"
-                return ptp_rehost_status, new_cover_url 
+                ptp_rehost_status = True
+                return ptp_rehost_status,new_cover_url,original_cover_url 
             else:
-                ptp_rehost_status = "failure"
+                ptp_rehost_status = False
                 print("--The cover was missing from the internet. Please replace the image manually. If the image is there, then there was an issue connecting to or interacting with PTPimg.")
                 print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the ptpimg API.")
                 log_name = "cover_missing"
@@ -205,7 +219,7 @@ def rehost_cover(torrent_id,cover_url):
                 log_outcomes(torrent_id,cover_url,log_name,log_message)
                 ptpimg_api_error +=1 # variable will increment every loop iteration
                 post_to_collage(torrent_id)
-                return ptp_rehost_status, cover_url
+                return ptp_rehost_status,cover_url,original_cover_url 
     except:    
         print("--There was an issue rehosting the cover art to ptpimg. Please try again later.")  
         print("--Logged cover skipped due to an issue connecting to the ptpimg API..")
@@ -273,21 +287,19 @@ def loop_rehost():
                 print("Rehosting:")
                 print("--The torrent ID is " + torrent_id)
                 print("--The url for the cover art is " + cover_url)
+                
+                #check to see if the site is there and whether the image is a 404 image
                 site_condition = url_condition_check(torrent_id,cover_url)
                 if site_condition == True:
                     #run the rehost cover function passing it the torrent_id and cover_url
-                    ptp_rehost_status,new_cover_url = rehost_cover(torrent_id,cover_url)
+                    ptp_rehost_status,new_cover_url,original_cover_url = rehost_cover(torrent_id,cover_url)
                     # trigger function to post cover to RED
-                    if ptp_rehost_status == "success":
-                        post_to_RED(torrent_id,new_cover_url)
-                        #introduce a delay after the first cover is rehosted
-                        loop_delay()
-                    else:
-                        #introduce a delay after the first cover is rehosted
-                        loop_delay()
-                else:
-                    #introduce a delay after the first cover is rehosted
-                    loop_delay()
+                    if ptp_rehost_status == True:
+                        post_to_RED(torrent_id,new_cover_url,original_cover_url)
+                        
+                #introduce a delay after the first cover is rehosted
+                loop_delay()        
+
         '''except:
             print("--There was an issue parsing the text file and the cover could not be rehosted.")  
             list_error +=1 # variable will increment every loop iteration
