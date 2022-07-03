@@ -278,7 +278,7 @@ def loop_rehost():
     
     if file_exists == True:
         #open the txt file and get the torrent group ID and cover url
-        #try:
+        '''try:'''
         with open('list.txt',encoding='utf-8') as f:
             for line in f:
                 line_values = line.split(",")
