@@ -81,10 +81,10 @@ def summary_text():
         elif ptpimg_api_error == 0:    
             print("--Info: There were " + str(ptpimg_api_error) + " covers skipped due to the covers no longer being on the internet or errors with the ptpimg api.")
         if cover_missing_error >= 1:
-            print("--Warning: There were " + str(cover_missing_error) + " covers skipped due to the covers no longer being on the internet or being 404 images.")
+            print("--Warning: There were " + str(cover_missing_error) + " covers skipped due to the covers no longer being on the internet or being a 404 image.")
             error_message +=1 # variable will increment if statement is true
         elif cover_missing_error == 0:    
-            print("--Info: There were " + str(cover_missing_error) + " covers skipped due to the covers no longer being on the internet or being 404 images.")
+            print("--Info: There were " + str(cover_missing_error) + " covers skipped due to the covers no longer being on the internet or being a 404 image.")
         if error_message >= 1:
             print("Check the logs to see which torrents and covers had errors and what they were.")
         else:
@@ -93,9 +93,9 @@ def summary_text():
         print("The was an error loading or parsing the list of torrent ids and cover urls, please check it and try again.")
 
 # A function to check if a website exists
-def site_check(url):
+def is_url_valid(cover_url):
     try:
-        request = requests.get(url) #Here is where im getting the error
+        request = requests.get(cover_url) #Here is where im getting the error
         if request.status_code == 200:
             return True
     except:
@@ -249,7 +249,7 @@ def url_condition_check(torrent_id,cover_url):
     global cover_missing_error
     
     #check to see if the site exists
-    site_exists = site_check(cover_url)
+    site_exists = is_url_valid(cover_url)
     if site_exists == False:
         print('--Cover is no longer on the internet. The site that hosted it is gone.')
         print("--Logged missing cover, site no longer exists.")
