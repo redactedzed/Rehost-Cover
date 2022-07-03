@@ -38,19 +38,19 @@ RED_replace_error = 0
 error_message = 0
 list_error = 0
 
-# The main funtion that controls the flow of the script
+# The main function that controls the flow of the script
 def main():
     #intro text
     print("")
     print("You spin me right 'round, baby, right 'round...")
 
-    # Run the funtion to loop through the list.txt file and rehost the cover art               
+    # Run the function to loop through the list.txt file and rehost the cover art               
     loop_rehost()   
 
     # Summary text
     print("")
     print("Like a record, baby, right 'round, 'round, 'round...")
-    # run summary text funtion to provide error messages
+    # run summary text function to provide error messages
     summary_text()
 
 
