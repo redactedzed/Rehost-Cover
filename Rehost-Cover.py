@@ -328,52 +328,59 @@ def loop_rehost():
     
     if os.path.exists('list.txt'):
         #open the txt file and get the torrent group ID and cover url
-        '''try:'''
-        with open('list.txt',encoding='utf-8') as f:
-            for line in f:
-                line_values = line.split(",")
-                torrent_id = line_values[0]
-                cover_url = line_values[1]
-                cover_url = cover_url.strip()
-                print("")
-                print("Rehosting:")
-                print("--The torrent ID is " + torrent_id)
-                print("--The url for the cover art is " + cover_url)
-                
-                #check to see if the site is there and whether the image is a 404 image
-                site_condition = url_condition_check(torrent_id,cover_url)
-                if site_condition == True:
-                    #run the rehost cover function passing it the torrent_id and cover_url
-                    ptp_rehost_status,new_cover_url,original_cover_url = rehost_cover(torrent_id,cover_url)
-                    # trigger function to post cover to RED
-                    if ptp_rehost_status == True:
-                        post_to_RED(torrent_id,new_cover_url,original_cover_url)
-                        
-                #introduce a delay after the first cover is rehosted
-                loop_delay()        
+        try:
+            with open('list.txt',encoding='utf-8') as f:
+                for line in f:
+                    line_values = line.split(",")
+                    torrent_id = line_values[0]
+                    cover_url = line_values[1]
+                    cover_url = cover_url.strip()
+                    print("")
+                    print("Rehosting:")
+                    print("--The torrent ID is " + torrent_id)
+                    print("--The url for the cover art is " + cover_url)
+                    
+                    #check to see if the site is there and whether the image is a 404 image
+                    site_condition = url_condition_check(torrent_id,cover_url)
+                    if site_condition == True:
+                        #run the rehost cover function passing it the torrent_id and cover_url
+                        ptp_rehost_status,new_cover_url,original_cover_url = rehost_cover(torrent_id,cover_url)
+                        # trigger function to post cover to RED
+                        if ptp_rehost_status == True:
+                            post_to_RED(torrent_id,new_cover_url,original_cover_url)
+                            
+                    #introduce a delay after the first cover is rehosted
+                    loop_delay()        
 
-        '''except:
-            print("--There was an issue parsing the text file and the cover could not be rehosted.")  
+        except FileNotFoundError:
+            print("--Error: The list.txt file is missing or named something else and the cover could not be rehosted. Please check it.")  
             list_error +=1 # variable will increment every loop iteration
-            return'''
+            return
+        except IndexError:
+            print("--Error: There was an issue parsing the list.txt file and the cover could not be rehosted. It was likely due to a blank line existing either before or after the list of links. Please check it.")  
+            list_error +=1 # variable will increment every loop iteration
+            return
     else:            
         print("--The list of ids and album covers is missing.")  
         list_error +=1 # variable will increment every loop iteration
         
 # The main function that controls the flow of the script
 def main():
-    #intro text
-    print("")
-    print("You spin me right 'round, baby, right 'round...")
+    try:
+        #intro text
+        print("")
+        print("You spin me right 'round, baby, right 'round...")
 
-    # Run the function to loop through the list.txt file and rehost the cover art               
-    loop_rehost()   
+        # Run the function to loop through the list.txt file and rehost the cover art               
+        loop_rehost()   
 
-    # Summary text
-    print("")
-    print("Like a record, baby, right 'round, 'round, 'round...")
-    # run summary text function to provide error messages
-    summary_text()        
+    finally:
+        # Summary text
+        print("")
+        print("Like a record, baby, right 'round, 'round, 'round...")
+        # run summary text function to provide error messages
+        summary_text()   
+        print("")     
  
 if __name__ == "__main__":
     main()
