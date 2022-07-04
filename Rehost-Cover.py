@@ -132,14 +132,35 @@ def check_404(url):
     else:
         return False
 
+# A function that looks for images that have been hosted on sites with known issues
+def check_bad_host(url):
+    #list of potentially problematic hosts
+    host_list = {"img.photobucket.com", "upload.wikimedia.org"}
+    #parse url string looking for certain urls
+    parsed_url = urlparse(url)
+    #check parsed hostname against list
+    if parsed_url.hostname in host_list:
+        return True
+    else:
+        return False
+
 # A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
-def post_to_collage(add_id):
+def post_to_collage(torrent_id,collage_type):
     global collage_ajax_page
     global headers
-    # create the data 
-    data = {'groupids': add_id}    
-    # post to collage     
-    r = requests.post(collage_ajax_page, data=data, headers=headers)  
+    
+    '''#assign collage ID
+    if collage_type == "broken_cover":
+        collage_id = "31445"
+    elif collage_type == "bad_cover":    
+        collage_id = "31735"      '''
+    
+    # create the ajax page and data
+    full_collage_ajax_page = collage_ajax_page + collage_type
+    print(full_collage_ajax_page)
+    data = {'groupids': torrent_id}    
+    # post to collage 
+    r = requests.post(full_collage_ajax_page, data=data, headers=headers)  
     # report status
     status = r.json()
     if status['response']['groupsadded']:
@@ -185,7 +206,9 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
             log_name = "RED_api_error"
             log_message = "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
             log_outcomes(torrent_id,cover_url,log_name,log_message)
-            post_to_collage(torrent_id)
+            # if it is a missing image, post it to the missing covers collage
+            collage_type="31445"
+            post_to_collage(torrent_id,collage_type)
             RED_replace_error +=1 # variable will increment every loop iteration
     except:
         print("--There was an issue connecting to or interacting with the RED API. Please try again later.")
@@ -193,7 +216,9 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
         log_name = "RED_api_error"
         log_message = "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
-        post_to_collage(torrent_id)
+        # if it is a missing image, post it to the missing covers collage
+        collage_type="31445"
+        post_to_collage(torrent_id,collage_type)
         RED_api_error +=1 # variable will increment every loop iteration
         return
         
@@ -225,7 +250,9 @@ def rehost_cover(torrent_id,cover_url):
                 log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that it was skipped due to an issue connecting to the ptpimg API. Please try again later"
                 log_outcomes(torrent_id,cover_url,log_name,log_message)
                 ptpimg_api_error +=1 # variable will increment every loop iteration
-                post_to_collage(torrent_id)
+                # if it is a missing image, post it to the missing covers collage
+                collage_type="31445"
+                post_to_collage(torrent_id,collage_type)
                 return ptp_rehost_status,cover_url,original_cover_url 
     except:    
         print("--There was an issue rehosting the cover art to ptpimg. Please try again later.")  
@@ -257,23 +284,40 @@ def url_condition_check(torrent_id,cover_url):
         log_message = "cover is no longer on the internet. The site that hosted it is gone"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         cover_missing_error +=1 # variable will increment every loop iteration
-        post_to_collage(torrent_id)
+        # if it is a missing image, post it to the missing covers collage
+        collage_type="31445"
+        post_to_collage(torrent_id,collage_type)
         return False
     else:    
         #check to see if the cover is known 404 image
         url_checked = check_404(cover_url)
         if url_checked == True:
             print('--Cover is no longer on the internet. It was replaced with a 404 image.')
-            print("--Logged missing cover, image is not on site.")
+            print("--Logged album skipped due to bad host.")
             log_name = "cover_missing"
             log_message = "cover is no longer on the internet. It was replaced with a 404 image"
             log_outcomes(torrent_id,cover_url,log_name,log_message)
             cover_missing_error +=1 # variable will increment every loop iteration
-            # if it is a 404 image post it to the missing covers collage
-            post_to_collage(torrent_id)
+            # if it is a 404 image, post it to the missing covers collage
+            collage_type="31445"
+            post_to_collage(torrent_id,collage_type)
             return False
-        else:
-            return True
+        else:  
+            #check to see if the cover is hosted on sites with known issues
+            host_checked = check_bad_host(cover_url)
+            if host_checked == True:
+                print('--Cover skipped due to it being on a site that has watermarked or tiny images.')
+                print("--Logged missing cover, image is not on site.")
+                log_name = "cover_missing"
+                log_message = "cover was skipped due to it being hosted on a site that has watermarked or tiny images."
+                log_outcomes(torrent_id,cover_url,log_name,log_message)
+                cover_missing_error +=1 # variable will increment every loop iteration
+                # if it is a bad cove host, post it to the bad covers collage
+                collage_type="31735"
+                post_to_collage(torrent_id,collage_type)
+                return False
+            else:                        
+                return True
 
 #A function that check if text file exists, loads it, loops through the lines, get id and url
 def loop_rehost():
