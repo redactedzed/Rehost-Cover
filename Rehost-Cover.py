@@ -57,6 +57,7 @@ def log_outcomes(torrent_id,cover_url,log_name,message):
         log_name.write(" \n")  
         log_name.close()
         
+# A function that writes a summary of what the script did at the end of the process        
 def summary_text():
     global count
     global list_error
@@ -116,24 +117,24 @@ def is_url_valid(cover_url):
     except:
         return False
         
-# A function to get the final url if a url is redirected
-def final_destination(url):
-    response = requests.get(url)
+# A function to get the final url if a cover url is redirected
+def final_destination(cover_url):
+    response = requests.get(cover_url)
     if response.history:
         return response.url
     else:
-        return url        
+        return cover_url        
 
 # A function that looks for images that have been replaced with 404 images
-def check_404(url):
+def check_404_image(cover_url):
     #list of potentially problematic hosts
     host_list = {"i.imgur.com", "imgur.com", "tinyimg.io"}
-    #parse url string looking for certain urls
-    parsed_url = urlparse(url)
+    #parse cover url string looking for certain urls
+    parsed_url = urlparse(cover_url)
     #check parsed hostname against list
     if parsed_url.hostname in host_list:
         #if found run history
-        final_url = final_destination(url)
+        final_url = final_destination(cover_url)
         print("--The url was forwarded to " + final_url)
         #match final destination to known 404 image
         if parsed_url.hostname == "i.imgur.com" and final_url == "https://i.imgur.com/removed.png":
@@ -148,11 +149,11 @@ def check_404(url):
         return False
 
 # A function that looks for images that have been hosted on sites with known issues
-def check_bad_host(url):
+def check_bad_host(cover_url):
     #list of potentially problematic hosts
     host_list = {"img.photobucket.com", "upload.wikimedia.org"}
-    #parse url string looking for certain urls
-    parsed_url = urlparse(url)
+    #parse cover url string looking for certain urls
+    parsed_url = urlparse(cover_url)
     #check parsed hostname against list
     if parsed_url.hostname in host_list:
         return True
@@ -327,7 +328,7 @@ def url_condition_check(torrent_id,cover_url):
         return False
     else:    
         #check to see if the cover is known 404 image
-        url_checked = check_404(cover_url)
+        url_checked = check_404_image(cover_url)
         if url_checked == True:
             print('--Cover is no longer on the internet. It was replaced with a 404 image.')
             print("--Logged album skipped due to bad host.")
