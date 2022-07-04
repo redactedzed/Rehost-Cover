@@ -30,12 +30,15 @@ r_api_key = config.c_r_api_key # imports your RED api key
 p_api_key = config.c_p_api_key # imports your ptpIMG api key 
 headers = {"Authorization": r_api_key} # sets the key value pair for accessing the RED api
 
+
 # Establishes the counters for completed covers and errors
 count = 0
 RED_api_error = 0
 ptpimg_api_error = 0
 RED_replace_error = 0
 cover_missing_error = 0
+collage_message = 0
+collage_error = 0
 error_message = 0
 list_error = 0
 
@@ -62,6 +65,8 @@ def summary_text():
     global ptpimg_api_error
     global error_message
     global cover_missing_error
+    global collage_message
+    global collage_error
     
     print("This script rehosted " + str(count) + " album covers.")  
     if  list_error ==0: 
@@ -85,6 +90,16 @@ def summary_text():
             error_message +=1 # variable will increment if statement is true
         elif cover_missing_error == 0:    
             print("--Info: There were " + str(cover_missing_error) + " covers skipped due to the covers no longer being on the internet or being a 404 image.")
+        if collage_message >= 1:
+            print("--Info: There were " + str(collage_message) + " albums added to a collage to due to missing or bad cover art.")
+            error_message +=1 # variable will increment if statement is true
+        elif collage_message == 0:    
+            print("--Info: There were " + str(collage_message) + " albums added to a collage to due to missing or bad cover art.")
+        if collage_error >= 1:
+            print("--Warning: There were " + str(collage_error) + " albums that had missing or bad cover art but adding them a collage failed.")
+            error_message +=1 # variable will increment if statement is true
+        elif collage_error == 0:    
+            print("--Info: There were " + str(collage_error) + " albums that had missing or bad cover art but adding them a collage failed.")
         if error_message >= 1:
             print("Check the logs to see which torrents and covers had errors and what they were.")
         else:
@@ -148,25 +163,33 @@ def check_bad_host(url):
 def post_to_collage(torrent_id,collage_type):
     global collage_ajax_page
     global headers
+    global collage_message
+    global collage_error
     
-    '''#assign collage ID
-    if collage_type == "broken_cover":
+    #assign collage ID
+    if collage_type == "broken_missing_covers_collage":
         collage_id = "31445"
-    elif collage_type == "bad_cover":    
-        collage_id = "31735"      '''
+        collage_name = "\'Torrents with broken cover art links\'"
+    elif collage_type == "bad_covers_collage":    
+        collage_id = "31735"   
+        collage_name = "\'Torrents with poor quality cover art images\'"   
     
     # create the ajax page and data
-    full_collage_ajax_page = collage_ajax_page + collage_type
-    print(full_collage_ajax_page)
+    full_collage_ajax_page = collage_ajax_page + collage_id
     data = {'groupids': torrent_id}    
     # post to collage 
     r = requests.post(full_collage_ajax_page, data=data, headers=headers)  
     # report status
     status = r.json()
     if status['response']['groupsadded']:
-        print("--Adding release to missing covers collage was a success.")      
+        print("--Adding release to " + collage_name + " collage was a success.")   
+        collage_message +=1 # variable will increment every loop iteration        
+    elif status['response']['groupsduplicated']: 
+        print("--Error: Adding release to " + collage_name + " collage was a failure, the album was already in the collage.")   
+        collage_error +=1 # variable will increment every loop iteration        
     else:
-        print("--Adding release to missing covers collage was a failure.")      
+        print("--Error: Adding release to " + collage_name + " collage was a failure.")   
+        collage_error +=1 # variable will increment every loop iteration       
     
 # A function that replaces the existing cover art on RED with the newly hosted one    
 def post_to_RED(torrent_id,new_cover_url,original_cover_url):   
@@ -193,10 +216,10 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
             count +=1 # variable will increment every loop iteration
         elif status['error'] == "No changes detected.":  
             print("--Replacing the cover on RED was a " + str(status["status"]))
-            print("--has already had it's cover replaced on RED.")
+            print("--This album has already had it's cover replaced on RED.")
             print("--Logged cover being skipped due to already haveing been replaced.")
             log_name = "RED_api_error"
-            log_message = "You have already replaced this cover on RED"
+            log_message = "has already had it's cover replaced on RED."
             log_outcomes(torrent_id,cover_url,log_name,log_message)
             RED_replace_error +=1 # variable will increment every loop iteration
         else:
@@ -207,7 +230,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
             log_message = "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
             log_outcomes(torrent_id,cover_url,log_name,log_message)
             # if it is a missing image, post it to the missing covers collage
-            collage_type="31445"
+            collage_type="broken_missing_covers_collage"
             post_to_collage(torrent_id,collage_type)
             RED_replace_error +=1 # variable will increment every loop iteration
     except:
@@ -217,7 +240,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
         log_message = "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         # if it is a missing image, post it to the missing covers collage
-        collage_type="31445"
+        collage_type="broken_missing_covers_collage"
         post_to_collage(torrent_id,collage_type)
         RED_api_error +=1 # variable will increment every loop iteration
         return
@@ -251,7 +274,7 @@ def rehost_cover(torrent_id,cover_url):
                 log_outcomes(torrent_id,cover_url,log_name,log_message)
                 ptpimg_api_error +=1 # variable will increment every loop iteration
                 # if it is a missing image, post it to the missing covers collage
-                collage_type="31445"
+                collage_type="broken_missing_covers_collage"
                 post_to_collage(torrent_id,collage_type)
                 return ptp_rehost_status,cover_url,original_cover_url 
     except:    
@@ -285,7 +308,7 @@ def url_condition_check(torrent_id,cover_url):
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         cover_missing_error +=1 # variable will increment every loop iteration
         # if it is a missing image, post it to the missing covers collage
-        collage_type="31445"
+        collage_type="broken_missing_covers_collage"
         post_to_collage(torrent_id,collage_type)
         return False
     else:    
@@ -299,7 +322,7 @@ def url_condition_check(torrent_id,cover_url):
             log_outcomes(torrent_id,cover_url,log_name,log_message)
             cover_missing_error +=1 # variable will increment every loop iteration
             # if it is a 404 image, post it to the missing covers collage
-            collage_type="31445"
+            collage_type="broken_missing_covers_collage"
             post_to_collage(torrent_id,collage_type)
             return False
         else:  
@@ -313,7 +336,7 @@ def url_condition_check(torrent_id,cover_url):
                 log_outcomes(torrent_id,cover_url,log_name,log_message)
                 cover_missing_error +=1 # variable will increment every loop iteration
                 # if it is a bad cove host, post it to the bad covers collage
-                collage_type="31735"
+                collage_type="bad_covers_collage"
                 post_to_collage(torrent_id,collage_type)
                 return False
             else:                        
