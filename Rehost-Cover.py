@@ -91,10 +91,10 @@ def summary_text():
         elif cover_missing_error == 0:    
             print("--Info: There were " + str(cover_missing_error) + " covers skipped due to the covers no longer being on the internet or being a 404 image.")
         if collage_message >= 1:
-            print("--Info: There were " + str(collage_message) + " albums added to a collage to due to missing or bad cover art.")
+            print("--Info: There were " + str(collage_message) + " albums added to a collage due to missing or bad cover art.")
             error_message +=1 # variable will increment if statement is true
         elif collage_message == 0:    
-            print("--Info: There were " + str(collage_message) + " albums added to a collage to due to missing or bad cover art.")
+            print("--Info: There were " + str(collage_message) + " albums added to a collage due to missing or bad cover art.")
         if collage_error >= 1:
             print("--Warning: There were " + str(collage_error) + " albums that had missing or bad cover art but adding them a collage failed.")
             error_message +=1 # variable will increment if statement is true
@@ -160,35 +160,49 @@ def check_bad_host(url):
         return False
 
 # A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
-def post_to_collage(torrent_id,collage_type):
+def post_to_collage(torrent_id,cover_url,collage_type):
     global collage_ajax_page
     global headers
     global collage_message
     global collage_error
     
-    #assign collage ID
+    #assign collage ID, name and URL
     if collage_type == "broken_missing_covers_collage":
         collage_id = "31445"
         collage_name = "\'Torrents with broken cover art links\'"
+        collage_url = "https://redacted.ch/collages.php?id=" + collage_id
     elif collage_type == "bad_covers_collage":    
         collage_id = "31735"   
         collage_name = "\'Torrents with poor quality cover art images\'"   
+        collage_url = "https://redacted.ch/collages.php?id=" + collage_id
     
     # create the ajax page and data
-    full_collage_ajax_page = collage_ajax_page + collage_id
+    ajax_page = collage_ajax_page + collage_id
     data = {'groupids': torrent_id}    
     # post to collage 
-    r = requests.post(full_collage_ajax_page, data=data, headers=headers)  
+    r = requests.post(ajax_page, data=data, headers=headers)  
     # report status
     status = r.json()
     if status['response']['groupsadded']:
-        print("--Adding release to " + collage_name + " collage was a success.")   
+        print("--Adding release to the " + collage_name + " collage was a success.")   
+        print("--Logged cover being added to " + collage_name + ".")
+        log_name = "collage_added"
+        log_message = "had bad or missing art and was added to the " + collage_name + " collage. \nCollage Location: " + collage_url + "\nTorrent info below"
+        log_outcomes(torrent_id,cover_url,log_name,log_message)
         collage_message +=1 # variable will increment every loop iteration        
     elif status['response']['groupsduplicated']: 
         print("--Error: Adding release to " + collage_name + " collage was a failure, the album was already in the collage.")   
+        print("--Logged cover failing to be added to " + collage_name + " due to it already being in the collage.")
+        log_name = "collage_fail"
+        log_message = "had bad or missing art and failed to be added to the " + collage_name + " due to it already being in the collage. \nCollage Location: " + collage_url + "\nTorrent info below"
+        log_outcomes(torrent_id,cover_url,log_name,log_message)
         collage_error +=1 # variable will increment every loop iteration        
     else:
-        print("--Error: Adding release to " + collage_name + " collage was a failure.")   
+        print("--Error: Adding release to " + collage_name + " collage was a failure.")     
+        print("--Logged cover failing to be added to " + collage_name + ".")
+        log_name = "collage_fail"
+        log_message = "had bad or missing art and failed to be added to the " + collage_name + ". \nCollage Location: " + collage_url + "\nTorrent info below"
+        log_outcomes(torrent_id,cover_url,log_name,log_message) 
         collage_error +=1 # variable will increment every loop iteration       
     
 # A function that replaces the existing cover art on RED with the newly hosted one    
@@ -212,7 +226,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
         r = requests.post(ajax_page, data=data, headers=headers)
         status = r.json()
         if status['status'] == "success":
-            print("--Replacing the cover on RED was a " + str(status["status"]))
+            print("--Success: Replacing the cover on RED was a " + str(status["status"]))
             count +=1 # variable will increment every loop iteration
         elif status['error'] == "No changes detected.":  
             print("--Replacing the cover on RED was a " + str(status["status"]))
@@ -231,7 +245,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
             log_outcomes(torrent_id,cover_url,log_name,log_message)
             # if it is a missing image, post it to the missing covers collage
             collage_type="broken_missing_covers_collage"
-            post_to_collage(torrent_id,collage_type)
+            post_to_collage(torrent_id,cover_url,collage_type)
             RED_replace_error +=1 # variable will increment every loop iteration
     except:
         print("--There was an issue connecting to or interacting with the RED API. Please try again later.")
@@ -241,7 +255,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
         log_outcomes(torrent_id,cover_url,log_name,log_message)
         # if it is a missing image, post it to the missing covers collage
         collage_type="broken_missing_covers_collage"
-        post_to_collage(torrent_id,collage_type)
+        post_to_collage(torrent_id,cover_url,collage_type)
         RED_api_error +=1 # variable will increment every loop iteration
         return
         
@@ -275,7 +289,7 @@ def rehost_cover(torrent_id,cover_url):
                 ptpimg_api_error +=1 # variable will increment every loop iteration
                 # if it is a missing image, post it to the missing covers collage
                 collage_type="broken_missing_covers_collage"
-                post_to_collage(torrent_id,collage_type)
+                post_to_collage(torrent_id,cover_url,collage_type)
                 return ptp_rehost_status,cover_url,original_cover_url 
     except:    
         print("--There was an issue rehosting the cover art to ptpimg. Please try again later.")  
@@ -309,7 +323,7 @@ def url_condition_check(torrent_id,cover_url):
         cover_missing_error +=1 # variable will increment every loop iteration
         # if it is a missing image, post it to the missing covers collage
         collage_type="broken_missing_covers_collage"
-        post_to_collage(torrent_id,collage_type)
+        post_to_collage(torrent_id,cover_url,collage_type)
         return False
     else:    
         #check to see if the cover is known 404 image
@@ -323,7 +337,7 @@ def url_condition_check(torrent_id,cover_url):
             cover_missing_error +=1 # variable will increment every loop iteration
             # if it is a 404 image, post it to the missing covers collage
             collage_type="broken_missing_covers_collage"
-            post_to_collage(torrent_id,collage_type)
+            post_to_collage(torrent_id,cover_url,collage_type)
             return False
         else:  
             #check to see if the cover is hosted on sites with known issues
@@ -337,7 +351,7 @@ def url_condition_check(torrent_id,cover_url):
                 cover_missing_error +=1 # variable will increment every loop iteration
                 # if it is a bad cove host, post it to the bad covers collage
                 collage_type="bad_covers_collage"
-                post_to_collage(torrent_id,collage_type)
+                post_to_collage(torrent_id,cover_url,collage_type)
                 return False
             else:                        
                 return True
