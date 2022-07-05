@@ -360,14 +360,18 @@ def url_condition_check(torrent_id,cover_url):
 #A function that check if text file exists, loads it, loops through the lines, get id and url
 def loop_rehost():
     global list_error
+    global list_directory
+    
+    #assemble list path
+    list_path = os.path.join(list_directory, "list.txt")
+    print(list_path)
+    
     #load the list of torrent ids and cover urls and cycle through them
     #check to see if there is an text file
-    #file_exists = os.path.exists('list.txt')
-    
-    if os.path.exists('list.txt'):
+    if os.path.exists(list_path):
         #open the txt file and get the torrent group ID and cover url
         try:
-            with open('list.txt',encoding='utf-8') as f:
+            with open(list_path,encoding='utf-8') as f:
                 for line in f:
                     line_values = line.split(",")
                     torrent_id = line_values[0]
