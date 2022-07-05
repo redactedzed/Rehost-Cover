@@ -230,7 +230,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
             print("--Success: Replacing the cover on RED was a " + str(status["status"]))
             count +=1 # variable will increment every loop iteration
         elif status['error'] == "No changes detected.":  
-            print("--Replacing the cover on RED was a " + str(status["status"]))
+            print("--Failure: Replacing the cover on RED was a " + str(status["status"]))
             print("--This album has already had it's cover replaced on RED.")
             print("--Logged cover being skipped due to already haveing been replaced.")
             log_name = "RED_api_error"
@@ -238,7 +238,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
             log_outcomes(torrent_id,cover_url,log_name,log_message)
             RED_replace_error +=1 # variable will increment every loop iteration
         else:
-            print("--THISReplacing the cover on RED was a " + str(status["status"]))
+            print("--Failure: Replacing the cover on RED was a " + str(status["status"]))
             print("--There was an issue connecting to or interacting with the RED API. If it is unstable, please try again later.")
             print("--Logged cover skipped due failed upload to RED.")
             log_name = "RED_api_error"
@@ -249,7 +249,7 @@ def post_to_RED(torrent_id,new_cover_url,original_cover_url):
             post_to_collage(torrent_id,cover_url,collage_type)
             RED_replace_error +=1 # variable will increment every loop iteration
     except:
-        print("--There was an issue connecting to or interacting with the RED API. Please try again later.")
+        print("--Failure: There was an issue connecting to or interacting with the RED API. Please try again later.")
         print("--Logged cover skipped due to an issue connecting to the RED API.")
         log_name = "RED_api_error"
         log_message = "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
@@ -282,7 +282,7 @@ def rehost_cover(torrent_id,cover_url):
                 return ptp_rehost_status,new_cover_url,original_cover_url 
             else:
                 ptp_rehost_status = False
-                print("--The cover was missing from the internet. Please replace the image manually. If the image is there, then the site resisted being scraped or there was an issue connecting to or interacting with PTPimg.")
+                print("--Failure: The cover was missing from the internet. Please replace the image manually. If the image is there, then the site resisted being scraped or there was an issue connecting to or interacting with PTPimg.")
                 print("--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the ptpimg API.")
                 log_name = "cover_missing"
                 log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that it was skipped due to an issue connecting to the ptpimg API. Please try again later"
@@ -293,7 +293,7 @@ def rehost_cover(torrent_id,cover_url):
                 post_to_collage(torrent_id,cover_url,collage_type)
                 return ptp_rehost_status,cover_url,original_cover_url 
     except:    
-        print("--There was an issue rehosting the cover art to ptpimg. Please try again later.")  
+        print("--Failure: There was an issue rehosting the cover art to ptpimg. Please try again later.")  
         print("--Logged cover skipped due to an issue connecting to the ptpimg API.")
         log_name = "ptpimg-api-error"
         log_message = "was skipped due to an issue connecting to the ptpimg API. Please try again later"
@@ -345,9 +345,9 @@ def url_condition_check(torrent_id,cover_url):
             host_checked = check_bad_host(cover_url)
             if host_checked == True:
                 print('--Cover skipped due to it being on a site that has watermarked or tiny images.')
-                print("--Logged missing cover, image is not on site.")
+                print("--Logged cover as missing cover, image is watermarked or tiny.")
                 log_name = "cover_missing"
-                log_message = "cover was skipped due to it being hosted on a site that has watermarked or tiny images."
+                log_message = "cover was skipped due to it being hosted on a site that has watermarked or tiny images"
                 log_outcomes(torrent_id,cover_url,log_name,log_message)
                 cover_missing_error +=1 # variable will increment every loop iteration
                 # if it is a bad cove host, post it to the bad covers collage
