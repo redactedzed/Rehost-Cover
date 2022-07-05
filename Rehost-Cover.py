@@ -28,7 +28,7 @@ site_ajax_page = config.c_site_ajax_page # imports gazelle ajax page
 collage_ajax_page = config.c_site_collage_ajax_page # imports missing cover art collage ajax page
 r_api_key = config.c_r_api_key # imports your RED api key 
 p_api_key = config.c_p_api_key # imports your ptpIMG api key 
-headers = {"Authorization": r_api_key} # sets the key value pair for accessing the RED api
+headers = {"Authorization": r_api_key, "User-Agent": "Rehost-Cover-Script/0.5"} # sets the key value pairs for accessing the RED api
 
 
 # Establishes the counters for completed covers and errors
@@ -364,7 +364,6 @@ def loop_rehost():
     
     #assemble list path
     list_path = os.path.join(list_directory, "list.txt")
-    print(list_path)
     
     #load the list of torrent ids and cover urls and cycle through them
     #check to see if there is an text file
