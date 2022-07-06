@@ -11,9 +11,9 @@ ptpimg-uploader script which can be found here: https://github.com/theirix/ptpim
 This script has been tested on Windows 10 and Ubuntu Linux.
 
 ## Install and set up
-1. Clone this script where you want to run it.
+1) Clone this script where you want to run it.
 
-2. Follow the instructions on the ptpimg-uploader script readme to install and set up that tool: https://github.com/theirix/ptpimg-uploader
+2) Follow the instructions on the ptpimg-uploader script readme to install and set up that tool: https://github.com/theirix/ptpimg-uploader
 
 to install it:
 
@@ -21,7 +21,7 @@ to install it:
 pip install ptpimg_uploader
 ```
 
-note: you may also need to install pyclip to get it to work. you can find that here: https://pypi.org/project/pyclip/
+_note:_ you may also need to install pyclip to get it to work. you can find that here: https://pypi.org/project/pyclip/
 
 to install it:
 
@@ -29,19 +29,21 @@ to install it:
 pip install pyclip
 ```
 
-3. In the directory the script is in, make a copy of test-config.py and rename it config.py
+3) In the directory the script is in, make a copy of test-config.py and rename it config.py
 
-4. Edit config.py to set up or specify two directories you will be using:
-  -The directory where the list.txt file will be stored
-  -A directory to store the log files the script creates
+4) Edit config.py to set up or specify two directories you will be using:
 
-5. Edit config.py to add in your API keys:
-  1. Your gazelle site API key
-  2. Your image host API key
+    A. The directory where the list.txt file will be stored  
+    B. A directory to store the log files the script creates  
 
-6. Then add your list.txt file to the folder you specified. Make sure it doesn't have any blank lines before or after the data.
+5) Edit config.py to add in your API keys
 
-7. Then run the script from the command line.  When it finishes it will output how many album covers it rehosted.
+    A. Your gazelle site API key  
+    B. Your image host API key  
+
+6) Then add your list.txt file to the folder you specified. Make sure it doesn't have any blank lines before or after the data.
+
+7) Then run the script from the command line.  When it finishes it will output how many album covers it rehosted.
 
 ```
 Rehost-Cover.py
