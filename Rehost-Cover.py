@@ -316,7 +316,7 @@ def url_condition_check(torrent_id,cover_url):
     #check to see if the site exists
     site_exists = is_url_valid(cover_url)
     if site_exists == False:
-        print('--Cover is no longer on the internet. The site that hosted it is gone.')
+        print('--Failure: Cover is no longer on the internet. The site that hosted it is gone.')
         print("--Logged missing cover, site no longer exists.")
         log_name = "cover_missing"
         log_message = "cover is no longer on the internet. The site that hosted it is gone"
@@ -330,7 +330,7 @@ def url_condition_check(torrent_id,cover_url):
         #check to see if the cover is known 404 image
         url_checked = check_404_image(cover_url)
         if url_checked == True:
-            print('--Cover is no longer on the internet. It was replaced with a 404 image.')
+            print('--Failure: Cover is no longer on the internet. It was replaced with a 404 image.')
             print("--Logged album skipped due to bad host.")
             log_name = "cover_missing"
             log_message = "cover is no longer on the internet. It was replaced with a 404 image"
@@ -344,7 +344,7 @@ def url_condition_check(torrent_id,cover_url):
             #check to see if the cover is hosted on sites with known issues
             host_checked = check_bad_host(cover_url)
             if host_checked == True:
-                print('--Cover skipped due to it being on a site that has watermarked or tiny images.')
+                print('--Failure: Cover skipped due to it being on a site that has watermarked or tiny images.')
                 print("--Logged cover as missing cover, image is watermarked or tiny.")
                 log_name = "cover_missing"
                 log_message = "cover was skipped due to it being hosted on a site that has watermarked or tiny images"
