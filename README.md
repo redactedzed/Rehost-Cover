@@ -13,7 +13,7 @@ This script has been tested on Windows 10 and Ubuntu Linux.
 ## Install and set up
 1) Clone this script where you want to run it.
 
-2) Install the [ptpimg-uploader script](https://github.com/theirix/ptpimg-uploader) to install with pip. (_note: on some systems it might be pip3_) 
+2) Install the [ptpimg-uploader script](https://github.com/theirix/ptpimg-uploader) with pip. (_note: on some systems it might be pip3_) 
 
 to install it:
 
