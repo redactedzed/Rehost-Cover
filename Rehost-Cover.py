@@ -11,8 +11,7 @@ import config  # imports the config file where you set your API key, directories
 import json  # imports json
 from random import randint  # Imports functionality that lets you generate a random number
 from time import sleep  # Imports functionality that lets you pause your script for a set period of time
-import subprocess  # Imports functionality that let's you run command line commands in a script
-from subprocess import PIPE, Popen
+from subprocess import PIPE, Popen  # Imports functionality that let's you run command line commands in a script
 from urllib.parse import urlparse
 
 # Before running this script install the dependencies
@@ -33,7 +32,6 @@ headers = {
     "User-Agent": "Rehost-Cover-Script/0.5",
 }  # sets the key value pairs for accessing the RED api
 
-
 # Establishes the counters for completed covers and errors
 count = 0
 total_count = 0
@@ -46,20 +44,19 @@ collage_error = 0
 error_message = 0
 list_error = 0
 
+
 # A function to log events
 def log_outcomes(torrent_id, cover_url, log_name, message):
     global log_directory
     script_name = "Rehost Cover Script"
-    log_name = log_name + ".txt"
+    log_name = f"{log_name}.txt"
     today = datetime.datetime.now()
     log_path = os.path.join(log_directory, log_name)
     with open(log_path, "a", encoding="utf-8") as log_name:
-        log_name.write(
-            "--{:%b, %d %Y}".format(today) + " at " + "{:%H:%M:%S}".format(today) + " from the " + script_name + ".\n"
-        )
-        log_name.write("The torrent group " + torrent_id + " " + message + ".\n")
-        log_name.write("Torrent location: https://redacted.ch/torrents.php?id=" + torrent_id + "\n")
-        log_name.write("Cover location: " + cover_url + "\n")
+        log_name.write(f"--{today:%b, %d %Y} at {today:%H:%M:%S} from the {script_name}.\n")
+        log_name.write(f"The torrent group {torrent_id} {message}.\n")
+        log_name.write(f"Torrent location: https://redacted.ch/torrents.php?id={torrent_id}\n")
+        log_name.write(f"Cover location: {cover_url}\n")
         log_name.write(" \n")
         log_name.close()
 
@@ -78,74 +75,56 @@ def summary_text():
     global collage_error
 
     print("")
-    print("This script rehosted " + str(count) + " album covers out of " + str(total_count) + " covers.")
+    print(f"This script rehosted {count} album covers out of {total_count} covers.")
     print("")
     if list_error == 0:
         if RED_replace_error >= 1:
-            print("--Warning: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.")
+            print(f"--Warning: There were {RED_replace_error} cover urls that failed being added to RED.")
             error_message += 1  # variable will increment if statement is true
         elif RED_replace_error == 0:
-            print("--Info: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.")
+            print(f"--Info: There were {RED_replace_error} cover urls that failed being added to RED.")
         if RED_api_error >= 1:
             print(
-                "--Warning: There were "
-                + str(RED_api_error)
-                + " covers skipped due to errors with the RED api. Please try again."
+                f"--Warning: There were {RED_api_error} covers skipped due to errors with the RED api. Please try again."
             )
             error_message += 1  # variable will increment if statement is true
         elif RED_api_error == 0:
-            print("--Info: There were " + str(RED_api_error) + " covers skipped due to errors with the RED api.")
+            print(f"--Info: There were {RED_api_error} covers skipped due to errors with the RED api.")
         if ptpimg_api_error >= 1:
             print(
-                "--Warning: There were "
-                + str(ptpimg_api_error)
-                + " covers skipped due to the covers no longer being on the internet or errors with the ptpimg api. Please try again."
+                f"--Warning: There were {ptpimg_api_error} covers skipped due to the covers no longer being on the internet or errors with the ptpimg api. Please try again."
             )
             error_message += 1  # variable will increment if statement is true
         elif ptpimg_api_error == 0:
             print(
-                "--Info: There were "
-                + str(ptpimg_api_error)
-                + " covers skipped due to the covers no longer being on the internet or errors with the ptpimg api."
+                f"--Info: There were {ptpimg_api_error} covers skipped due to the covers no longer being on the internet or errors with the ptpimg api."
             )
         if cover_missing_error >= 1:
             print(
-                "--Warning: There were "
-                + str(cover_missing_error)
-                + " covers skipped due to the covers no longer being on the internet or being a 404 image."
+                f"--Warning: There were {cover_missing_error} covers skipped due to the covers no longer being on the internet or being a 404 image."
             )
             error_message += 1  # variable will increment if statement is true
         elif cover_missing_error == 0:
             print(
-                "--Info: There were "
-                + str(cover_missing_error)
-                + " covers skipped due to the covers no longer being on the internet or being a 404 image."
+                f"--Info: There were {cover_missing_error} covers skipped due to the covers no longer being on the internet or being a 404 image."
             )
         if collage_message >= 1:
             print(
-                "--Info: There were "
-                + str(collage_message)
-                + " albums added to a collage due to missing or bad cover art."
+                f"--Info: There were {collage_message} albums added to a collage due to missing or bad cover art."
             )
             error_message += 1  # variable will increment if statement is true
         elif collage_message == 0:
             print(
-                "--Info: There were "
-                + str(collage_message)
-                + " albums added to a collage due to missing or bad cover art."
+                f"--Info: There were {collage_message} albums added to a collage due to missing or bad cover art."
             )
         if collage_error >= 1:
             print(
-                "--Warning: There were "
-                + str(collage_error)
-                + " albums that had missing or bad cover art but adding them a collage failed."
+                f"--Warning: There were {collage_error} albums that had missing or bad cover art but adding them a collage failed."
             )
             error_message += 1  # variable will increment if statement is true
         elif collage_error == 0:
             print(
-                "--Info: There were "
-                + str(collage_error)
-                + " albums that had missing or bad cover art but adding them a collage failed."
+                f"--Info: There were {str(collage_error)} albums that had missing or bad cover art but adding them a collage failed."
             )
         if error_message >= 1:
             print("Check the logs to see which torrents and covers had errors and what they were.")
@@ -186,7 +165,7 @@ def check_404_image(cover_url):
     if parsed_url.hostname in host_list:
         # if found run history
         final_url = final_destination(cover_url)
-        print("--The url was forwarded to " + final_url)
+        print(f"--The url was forwarded to {final_url}")
         # match final destination to known 404 image
         if parsed_url.hostname == "i.imgur.com" and final_url == "https://i.imgur.com/removed.png":
             return True
@@ -224,60 +203,38 @@ def post_to_collage(torrent_id, cover_url, collage_type):
     if collage_type == "broken_missing_covers_collage":
         collage_id = "31445"
         collage_name = "'Torrents with broken cover art links'"
-        collage_url = "https://redacted.ch/collages.php?id=" + collage_id
+        collage_url = f"https://redacted.ch/collages.php?id={collage_id}"
     elif collage_type == "bad_covers_collage":
         collage_id = "31735"
         collage_name = "'Torrents with poor quality cover art images'"
-        collage_url = "https://redacted.ch/collages.php?id=" + collage_id
+        collage_url = f"https://redacted.ch/collages.php?id={collage_id}"
 
     # create the ajax page and data
-    ajax_page = collage_ajax_page + collage_id
+    ajax_page = f"{collage_ajax_page}{collage_id}"
     data = {"groupids": torrent_id}
     # post to collage
     r = requests.post(ajax_page, data=data, headers=headers)
     # report status
     status = r.json()
     if status["response"]["groupsadded"]:
-        print("--Adding release to the " + collage_name + " collage was a success.")
-        print("--Logged cover being added to " + collage_name + ".")
+        print(f"--Adding release to the {collage_name} collage was a success.")
+        print(f"--Logged cover being added to {collage_name}.")
         log_name = "collage_added"
-        log_message = (
-            "had bad or missing art and was added to the "
-            + collage_name
-            + " collage. \nCollage Location: "
-            + collage_url
-            + "\nTorrent info below"
-        )
+        log_message = f"had bad or missing art and was added to the {collage_name} collage. \nCollage Location: {collage_url}\nTorrent info below"
         log_outcomes(torrent_id, cover_url, log_name, log_message)
         collage_message += 1  # variable will increment every loop iteration
     elif status["response"]["groupsduplicated"]:
-        print(
-            "--Error: Adding release to "
-            + collage_name
-            + " collage was a failure, the album was already in the collage."
-        )
-        print("--Logged cover failing to be added to " + collage_name + " due to it already being in the collage.")
+        print(f"--Error: Adding release to {collage_name} collage was a failure, the album was already in the collage.")
+        print(f"--Logged cover failing to be added to {collage_name} due to it already being in the collage.")
         log_name = "collage_fail"
-        log_message = (
-            "had bad or missing art and failed to be added to the "
-            + collage_name
-            + " due to it already being in the collage. \nCollage Location: "
-            + collage_url
-            + "\nTorrent info below"
-        )
+        log_message = f"had bad or missing art and failed to be added to the {collage_name} due to it already being in the collage. \nCollage Location: {collage_url}\nTorrent info below"
         log_outcomes(torrent_id, cover_url, log_name, log_message)
         collage_error += 1  # variable will increment every loop iteration
     else:
-        print("--Error: Adding release to " + collage_name + " collage was a failure.")
-        print("--Logged cover failing to be added to " + collage_name + ".")
+        print(f"--Error: Adding release to {collage_name} collage was a failure.")
+        print(f"--Logged cover failing to be added to {collage_name}.")
         log_name = "collage_fail"
-        log_message = (
-            "had bad or missing art and failed to be added to the "
-            + collage_name
-            + ". \nCollage Location: "
-            + collage_url
-            + "\nTorrent info below"
-        )
+        log_message = f"had bad or missing art and failed to be added to the {collage_name}. \nCollage Location: {collage_url}\nTorrent info below"
         log_outcomes(torrent_id, cover_url, log_name, log_message)
         collage_error += 1  # variable will increment every loop iteration
 
@@ -292,8 +249,7 @@ def post_to_RED(torrent_id, new_cover_url, original_cover_url):
     cover_url = original_cover_url
 
     # create the ajax page and data
-    ajax_page = site_ajax_page
-    ajax_page = ajax_page + torrent_id
+    ajax_page = f"{site_ajax_page}{torrent_id}"
     edit_message = "Automatically rehosted cover to PTPimg"
     data = {"summary": edit_message, "image": new_cover_url}
 
@@ -302,18 +258,18 @@ def post_to_RED(torrent_id, new_cover_url, original_cover_url):
         r = requests.post(ajax_page, data=data, headers=headers)
         status = r.json()
         if status["status"] == "success":
-            print("--Success: Replacing the cover on RED was a " + str(status["status"]))
+            print(f"--Success: Replacing the cover on RED was a {status['status']}")
             count += 1  # variable will increment every loop iteration
         elif status["error"] == "No changes detected.":
-            print("--Failure: Replacing the cover on RED was a " + str(status["status"]))
+            print(f"--Failure: Replacing the cover on RED was a {status['status']}")
             print("--This album has already had it's cover replaced on RED.")
-            print("--Logged cover being skipped due to already haveing been replaced.")
+            print("--Logged cover being skipped due to already having been replaced.")
             log_name = "RED_api_error"
             log_message = "has already had it's cover replaced on RED."
             log_outcomes(torrent_id, cover_url, log_name, log_message)
             RED_replace_error += 1  # variable will increment every loop iteration
         else:
-            print("--Failure: Replacing the cover on RED was a " + str(status["status"]))
+            print(f"--Failure: Replacing the cover on RED was a {status['status']}")
             print(
                 "--There was an issue connecting to or interacting with the RED API. If it is unstable, please try again later."
             )
@@ -348,7 +304,7 @@ def rehost_cover(torrent_id, cover_url):
     global ptpimg_api_error
 
     # assemble the command for rehosting the cover
-    the_command = 'ptpimg_uploader -k  "' + p_api_key + '"' + ' "' + cover_url + '"'
+    the_command = f'ptpimg_uploader -k  "{p_api_key}" "{cover_url}"'
     # print(the_command)
     original_cover_url = cover_url
 
@@ -359,7 +315,7 @@ def rehost_cover(torrent_id, cover_url):
             # test to see if ptpimg returned a url, if not there was an error
             if new_cover_url:
                 new_cover_url = new_cover_url.strip()
-                print("--The cover has been rehosted at " + new_cover_url)
+                print(f"--The cover has been rehosted at {new_cover_url}")
                 ptp_rehost_status = True
                 return ptp_rehost_status, new_cover_url, original_cover_url
             else:
@@ -393,7 +349,7 @@ def loop_delay():
     global count
     if count >= 1:
         delay = randint(1, 3)  # Generate a random number of seconds within this range
-        print("The script is pausing for " + str(delay) + " seconds.")
+        print(f"The script is pausing for {delay} seconds.")
         sleep(delay)  # Delay the script randomly to reduce anti-web scraping blocks
 
 
@@ -469,8 +425,8 @@ def loop_rehost():
                     print("")
                     print("Rehosting:")
                     total_count += 1  # variable will increment every loop iteration
-                    print("--The group url is https://redacted.ch/torrents.php?id=" + torrent_id)
-                    print("--The url for the cover art is " + cover_url)
+                    print(f"--The group url is https://redacted.ch/torrents.php?id={torrent_id}")
+                    print(f"--The url for the cover art is {cover_url}")
 
                     # check to see if the site is there and whether the image is a 404 image
                     site_condition = url_condition_check(torrent_id, cover_url)
