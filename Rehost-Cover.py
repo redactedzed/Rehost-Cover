@@ -8,6 +8,7 @@ import requests  # Imports the ability to make web or api requests
 import datetime  # Imports functionality that lets you make timestamps
 import ptpimg_uploader  # imports the tool which lets you upload to ptpimg
 import config  # imports the config file where you set your API key, directories, etc
+from csv import DictReader  # For parsing the input CSV file
 from random import randint  # Imports functionality that lets you generate a random number
 from time import sleep  # Imports functionality that lets you pause your script for a set period of time
 from urllib.parse import urlparse
@@ -389,11 +390,11 @@ def loop_rehost():
         # open the txt file and get the torrent group ID and cover url
         try:
             with open(list_path, encoding="utf-8") as f:
-                for line in f:
-                    line_values = line.split(",")
-                    torrent_id = line_values[0]
-                    cover_url = line_values[1]
-                    cover_url = cover_url.strip()
+                reader = DictReader(f, dialect="unix")
+                for line in reader:
+
+                    torrent_id: int = int(line["ID"])
+                    cover_url: str = line["WikiImage"].strip()
                     print("")
                     print("Rehosting:")
                     total_count += 1  # variable will increment every loop iteration
@@ -402,7 +403,7 @@ def loop_rehost():
 
                     # check to see if the site is there and whether the image is a 404 image
                     site_condition = url_condition_check(torrent_id, cover_url)
-                    if site_condition == True:
+                    if site_condition:
                         # run the rehost cover function passing it the torrent_id and cover_url
                         new_cover_url = rehost_cover(torrent_id, cover_url)
                         # trigger function to post cover to RED
