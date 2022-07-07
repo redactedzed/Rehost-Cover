@@ -33,6 +33,7 @@ headers = {"Authorization": r_api_key, "User-Agent": "Rehost-Cover-Script/0.5"} 
 
 # Establishes the counters for completed covers and errors
 count = 0
+total_count = 0
 RED_api_error = 0
 ptpimg_api_error = 0
 RED_replace_error = 0
@@ -60,6 +61,7 @@ def log_outcomes(torrent_id,cover_url,log_name,message):
 # A function that writes a summary of what the script did at the end of the process        
 def summary_text():
     global count
+    global total_count
     global list_error
     global RED_replace_error
     global RED_api_error
@@ -69,7 +71,9 @@ def summary_text():
     global collage_message
     global collage_error
     
-    print("This script rehosted " + str(count) + " album covers.")  
+    print ("")
+    print("This script rehosted " + str(count) + " album covers out of " + str(total_count) + " covers.")  
+    print ("")
     if  list_error ==0: 
         if RED_replace_error >= 1:
             print("--Warning: There were " + str(RED_replace_error) + " cover urls that failed being added to RED.")
@@ -361,6 +365,7 @@ def url_condition_check(torrent_id,cover_url):
 def loop_rehost():
     global list_error
     global list_directory
+    global total_count
     
     #assemble list path
     list_path = os.path.join(list_directory, "list.txt")
@@ -378,6 +383,7 @@ def loop_rehost():
                     cover_url = cover_url.strip()
                     print("")
                     print("Rehosting:")
+                    total_count +=1 # variable will increment every loop iteration
                     print("--The group url is https://redacted.ch/torrents.php?id=" + torrent_id)
                     print("--The url for the cover art is " + cover_url)
                     
