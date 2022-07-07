@@ -78,58 +78,38 @@ def summary_text():
     print(f"This script rehosted {count} album covers out of {total_count} covers.")
     print("")
     if list_error == 0:
-        if RED_replace_error >= 1:
-            print(f"--Warning: There were {RED_replace_error} cover urls that failed being added to RED.")
-            error_message += 1  # variable will increment if statement is true
-        elif RED_replace_error == 0:
-            print(f"--Info: There were {RED_replace_error} cover urls that failed being added to RED.")
-        if RED_api_error >= 1:
-            print(
-                f"--Warning: There were {RED_api_error} covers skipped due to errors with the RED api. Please try again."
-            )
-            error_message += 1  # variable will increment if statement is true
-        elif RED_api_error == 0:
-            print(f"--Info: There were {RED_api_error} covers skipped due to errors with the RED api.")
-        if ptpimg_api_error >= 1:
-            print(
-                f"--Warning: There were {ptpimg_api_error} covers skipped due to the covers no longer being on the internet or errors with the ptpimg api. Please try again."
-            )
-            error_message += 1  # variable will increment if statement is true
-        elif ptpimg_api_error == 0:
-            print(
-                f"--Info: There were {ptpimg_api_error} covers skipped due to the covers no longer being on the internet or errors with the ptpimg api."
-            )
-        if cover_missing_error >= 1:
-            print(
-                f"--Warning: There were {cover_missing_error} covers skipped due to the covers no longer being on the internet or being a 404 image."
-            )
-            error_message += 1  # variable will increment if statement is true
-        elif cover_missing_error == 0:
-            print(
-                f"--Info: There were {cover_missing_error} covers skipped due to the covers no longer being on the internet or being a 404 image."
-            )
-        if collage_message >= 1:
-            print(
-                f"--Info: There were {collage_message} albums added to a collage due to missing or bad cover art."
-            )
-            error_message += 1  # variable will increment if statement is true
-        elif collage_message == 0:
-            print(
-                f"--Info: There were {collage_message} albums added to a collage due to missing or bad cover art."
-            )
-        if collage_error >= 1:
-            print(
-                f"--Warning: There were {collage_error} albums that had missing or bad cover art but adding them a collage failed."
-            )
-            error_message += 1  # variable will increment if statement is true
-        elif collage_error == 0:
-            print(
-                f"--Info: There were {str(collage_error)} albums that had missing or bad cover art but adding them a collage failed."
-            )
-        if error_message >= 1:
+
+        level = "Warning" if RED_replace_error else "Info"
+        print(f"--{level}: There were {RED_replace_error} cover urls that failed being added to RED.")
+
+        level = "Warning" if RED_api_error else "Info"
+        print(f"--{level}: There were {RED_api_error} covers skipped due to errors with the RED api.")
+
+        level = "Warning" if ptpimg_api_error else "Info"
+        print(
+            f"--{level}: There were {ptpimg_api_error} covers skipped due to the covers no longer being on the internet or errors with the ptpimg api."
+        )
+
+        level = "Warning" if cover_missing_error else "Info"
+        print(
+            f"--{level}: There were {cover_missing_error} covers skipped due to the covers no longer being on the internet or being a 404 image."
+        )
+
+        level = "Warning" if collage_message else "Info"
+        print(f"--{level}: There were {collage_message} albums added to a collage due to missing or bad cover art.")
+
+        level = "Warning" if collage_error else "Info"
+        print(
+            f"--{level}: There were {collage_error} albums that had missing or bad cover art but adding them a collage failed."
+        )
+
+        if any(
+            [RED_replace_error, RED_api_error, ptpimg_api_error, cover_missing_error, collage_message, collage_error]
+        ):
             print("Check the logs to see which torrents and covers had errors and what they were.")
         else:
             print("There were no errors.")
+
     else:
         print(
             "The was an error loading or parsing the list of torrent ids and cover urls, please check it and try again."
@@ -140,9 +120,8 @@ def summary_text():
 def is_url_valid(cover_url):
     try:
         request = requests.get(cover_url)  # Here is where im getting the error
-        if request.status_code == 200:
-            return True
-    except:
+        request.raise_for_status()
+    except requests.exceptions.HTTPError:
         return False
 
 
@@ -167,16 +146,14 @@ def check_404_image(cover_url):
         final_url = final_destination(cover_url)
         print(f"--The url was forwarded to {final_url}")
         # match final destination to known 404 image
-        if parsed_url.hostname == "i.imgur.com" and final_url == "https://i.imgur.com/removed.png":
-            return True
-        elif parsed_url.hostname == "imgur.com" and final_url == "https://i.imgur.com/removed.png":
-            return True
-        elif parsed_url.hostname == "tinyimg.io" and final_url == "https://tinyimg.io/notfound":
-            return True
-        else:
-            return False
-    else:
-        return False
+        match parsed_url.hostname:
+            case "i.imgur.com":
+                return final_url == "https://i.imgur.com/removed.png"
+            case "imgur.com":
+                return final_url == "https://i.imgur.com/removed.png"
+            case "tinyimg.io":
+                return final_url == "https://tinyimg.io/notfound"
+    return False
 
 
 # A function that looks for images that have been hosted on sites with known issues
@@ -186,10 +163,7 @@ def check_bad_host(cover_url):
     # parse cover url string looking for certain urls
     parsed_url = urlparse(cover_url)
     # check parsed hostname against list
-    if parsed_url.hostname in host_list:
-        return True
-    else:
-        return False
+    return parsed_url.hostname in host_list
 
 
 # A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
