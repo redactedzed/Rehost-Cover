@@ -21,12 +21,12 @@ to install it:
 pip install ptpimg_uploader
 ```
 
-_note:_ you may also need to install pyclip to get it to work. you can find that here: https://pypi.org/project/pyclip/
+_note:_ you will also need to install pyperclip to get it to work. you can find that here: https://pypi.org/project/pyperclip/
 
 to install it:
 
 ```
-pip install pyclip
+pip install pyperclip
 ```
 
 3) In the directory the script is in, make a copy of test-config.py and rename it config.py
