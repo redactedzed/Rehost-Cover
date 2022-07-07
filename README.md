@@ -8,7 +8,7 @@ This script does a number of things to ensure the quality of what it is rehostin
 In order to use this script you will need API keys to both the gazelle site and the preferred image host. It also has a dependency on the 
 ptpimg-uploader script which can be found here: https://github.com/theirix/ptpimg-uploader
 
-This script has been tested on Windows 10 and Ubuntu Linux.
+This script has been tested on Windows 10, Ubuntu Linux 20.04.4 LTS and Mac OS Version 12: Monterey.
 
 ## Install and set up
 1) Clone this script where you want to run it.
