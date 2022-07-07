@@ -270,8 +270,8 @@ def rehost_cover(torrent_id,cover_url):
     global ptpimg_api_error
 
     #assemble the command for rehosting the cover
-    the_command = "ptpimg_uploader -k  \"" + p_api_key + "\"" + " " + cover_url
-    #print(the_command)
+    the_command = "ptpimg_uploader -k  \"" + p_api_key + "\"" + " \"" + cover_url + "\""
+    print(the_command)
     original_cover_url = cover_url
 
     # using subprocess, rehost the cover to ptpIMG
