@@ -31,7 +31,7 @@ pip install pyperclip
 
 3) In the directory the script is in, make a copy of test-config.py and rename it config.py
 
-4) Edit config.py to set up or specify two directories you will be using:
+4) Edit config.py to set up or specify two directories you will be using using absolute paths:
 
     A. The directory where the list.txt file will be stored  
     B. A directory to store the log files the script creates  
