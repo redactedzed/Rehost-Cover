@@ -378,7 +378,7 @@ def loop_rehost():
                     cover_url = cover_url.strip()
                     print("")
                     print("Rehosting:")
-                    print("--The torrent url is https://redacted.ch/torrents.php?id=" + torrent_id)
+                    print("--The group url is https://redacted.ch/torrents.php?id=" + torrent_id)
                     print("--The url for the cover art is " + cover_url)
                     
                     #check to see if the site is there and whether the image is a 404 image
