@@ -43,10 +43,13 @@ pip install pyperclip
 
 6) Then add your list.txt file to the folder you specified. Make sure it doesn't have any blank lines before or after the data.
 
-7) Then run the script from the command line.  When it finishes it will output how many album covers it rehosted.
+7) With your terminal in the directory the script is in, run the script from the command line.  When it finishes it will output how many album covers it rehosted.
 
 ```
 Rehost-Cover.py
 ```
 
-It will also create logs of any albums it was unable to rehost album covers for and save to the logs folder with a short explanation of what went wrong. In some cases, connection or api issues, you might want to rerun those folders. In others, such as "the art is no longer on the internet", you will want to check in case the art is actually there and just at a weird URL. If it isn't on the site find a copy and consider adding it to the site. 
+_note: on linux and mac you will likely need to type "python3 Rehost-Cover.py"_  
+_note 2: you can run the script from anywhere if you provide the full path to it_
+
+The script will also create logs of any albums it was unable to rehost album covers for and save to the logs folder with a short explanation of what went wrong. In some cases, connection or api issues, you might want to rerun those folders. In others, such as "the art is no longer on the internet", you will want to check in case the art is actually there and just at a weird URL. If it isn't on the site find a copy and consider adding it to the site. 
