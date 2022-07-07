@@ -13,7 +13,7 @@ This script has been tested on Windows 10 and Ubuntu Linux.
 ## Install and set up
 1) Clone this script where you want to run it.
 
-2) Follow the instructions on the ptpimg-uploader script readme to install and set up that tool: https://github.com/theirix/ptpimg-uploader
+2) Install the [ptpimg-uploader script](https://github.com/theirix/ptpimg-uploader) to install with pip. (_note: on some systems it might be pip3_) 
 
 to install it:
 
@@ -21,7 +21,7 @@ to install it:
 pip install ptpimg_uploader
 ```
 
-_note:_ you will also need to install pyperclip to get it to work. you can find that here: https://pypi.org/project/pyperclip/
+3) Install [pyperclip](https://pypi.org/project/pyperclip/) with pip. (_note: on some systems it might be pip3_) 
 
 to install it:
 
