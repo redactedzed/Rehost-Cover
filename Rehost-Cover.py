@@ -8,10 +8,8 @@ import requests  # Imports the ability to make web or api requests
 import datetime  # Imports functionality that lets you make timestamps
 import ptpimg_uploader  # imports the tool which lets you upload to ptpimg
 import config  # imports the config file where you set your API key, directories, etc
-import json  # imports json
 from random import randint  # Imports functionality that lets you generate a random number
 from time import sleep  # Imports functionality that lets you pause your script for a set period of time
-from subprocess import PIPE, Popen  # Imports functionality that let's you run command line commands in a script
 from urllib.parse import urlparse
 
 # Before running this script install the dependencies
@@ -277,45 +275,45 @@ def rehost_cover(torrent_id, cover_url):
     global p_api_key
     global ptpimg_api_error
 
-    # assemble the command for rehosting the cover
-    the_command = f'ptpimg_uploader -k  "{p_api_key}" "{cover_url}"'
-    # print(the_command)
-    original_cover_url = cover_url
+    # TODO: Do this once globally
+    # Instantiate an uploader
+    ptpimg = ptpimg_uploader.PtpimgUploader(api_key=p_api_key, timeout=10)
 
-    # using subprocess, rehost the cover to ptpIMG
     try:
-        with Popen(the_command, stdout=PIPE, stderr=None, shell=True) as process:
-            new_cover_url = process.communicate()[0].decode("utf-8")
-            # test to see if ptpimg returned a url, if not there was an error
-            if new_cover_url:
-                new_cover_url = new_cover_url.strip()
-                print(f"--The cover has been rehosted at {new_cover_url}")
-                ptp_rehost_status = True
-                return ptp_rehost_status, new_cover_url, original_cover_url
-            else:
-                ptp_rehost_status = False
-                print(
-                    "--Failure: The cover was missing from the internet. Please replace the image manually. If the image is there, then the site resisted being scraped or there was an issue connecting to or interacting with PTPimg."
-                )
-                print(
-                    "--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the ptpimg API."
-                )
-                log_name = "cover_missing"
-                log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that it was skipped due to an issue connecting to the ptpimg API. Please try again later"
-                log_outcomes(torrent_id, cover_url, log_name, log_message)
-                ptpimg_api_error += 1  # variable will increment every loop iteration
-                # if it is a missing image, post it to the missing covers collage
-                collage_type = "broken_missing_covers_collage"
-                post_to_collage(torrent_id, cover_url, collage_type)
-                return ptp_rehost_status, cover_url, original_cover_url
-    except:
+        # Upload URL
+        new_cover_url = ptpimg.upload_url(cover_url)
+
+        if new_cover_url:
+            new_cover_url = new_cover_url[0].strip()
+            print(f"--The cover has been rehosted at {new_cover_url}")
+            return new_cover_url
+
+        else:
+            print(
+                "--Failure: The cover was missing from the internet. Please replace the image manually. If the image is there, then the site resisted being scraped or there was an issue connecting to or interacting with PTPimg."
+            )
+            print(
+                "--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the ptpimg API."
+            )
+            log_name = "cover_missing"
+            log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that it was skipped due to an issue connecting to the ptpimg API. Please try again later"
+            log_outcomes(torrent_id, cover_url, log_name, log_message)
+            ptpimg_api_error += 1  # variable will increment every loop iteration
+
+            # TODO: This collage logic feels like it belongs elsewhere
+            # if it is a missing image, post it to the missing covers collage
+            collage_type = "broken_missing_covers_collage"
+            post_to_collage(torrent_id, cover_url, collage_type)
+
+    except:  # TODO: Improve exception handler
         print("--Failure: There was an issue rehosting the cover art to ptpimg. Please try again later.")
         print("--Logged cover skipped due to an issue connecting to the ptpimg API.")
         log_name = "ptpimg-api-error"
         log_message = "was skipped due to an issue connecting to the ptpimg API. Please try again later"
         log_outcomes(torrent_id, cover_url, log_name, log_message)
         ptpimg_api_error += 1  # variable will increment every loop iteration
-        return
+
+    return
 
 
 # A function to introduce a random delay into the loop to reduce the chance of being blocked for web scraping.
@@ -406,10 +404,10 @@ def loop_rehost():
                     site_condition = url_condition_check(torrent_id, cover_url)
                     if site_condition == True:
                         # run the rehost cover function passing it the torrent_id and cover_url
-                        ptp_rehost_status, new_cover_url, original_cover_url = rehost_cover(torrent_id, cover_url)
+                        new_cover_url = rehost_cover(torrent_id, cover_url)
                         # trigger function to post cover to RED
-                        if ptp_rehost_status == True:
-                            post_to_RED(torrent_id, new_cover_url, original_cover_url)
+                        if new_cover_url:
+                            post_to_RED(torrent_id, new_cover_url, cover_url)
 
                     # introduce a delay after the first cover is rehosted
                     loop_delay()
