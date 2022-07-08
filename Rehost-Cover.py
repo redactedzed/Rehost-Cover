@@ -115,56 +115,6 @@ def summary_text():
         )
 
 
-# A function to check if a website exists
-def is_url_valid(cover_url):
-    try:
-        request = requests.get(cover_url)  # Here is where im getting the error
-        request.raise_for_status()
-    except requests.exceptions.HTTPError:
-        return False
-
-
-# A function to get the final url if a cover url is redirected
-def final_destination(cover_url):
-    response = requests.get(cover_url)
-    if response.history:
-        return response.url
-    else:
-        return cover_url
-
-
-# A function that looks for images that have been replaced with 404 images
-def check_404_image(cover_url):
-    # list of potentially problematic hosts
-    host_list = {"i.imgur.com", "imgur.com", "tinyimg.io"}
-    # parse cover url string looking for certain urls
-    parsed_url = urlparse(cover_url)
-    # check parsed hostname against list
-    if parsed_url.hostname in host_list:
-        # if found run history
-        final_url = final_destination(cover_url)
-        print(f"--The url was forwarded to {final_url}")
-        # match final destination to known 404 image
-        match parsed_url.hostname:
-            case "i.imgur.com":
-                return final_url == "https://i.imgur.com/removed.png"
-            case "imgur.com":
-                return final_url == "https://i.imgur.com/removed.png"
-            case "tinyimg.io":
-                return final_url == "https://tinyimg.io/notfound"
-    return False
-
-
-# A function that looks for images that have been hosted on sites with known issues
-def check_bad_host(cover_url):
-    # list of potentially problematic hosts
-    host_list = {"img.photobucket.com", "upload.wikimedia.org"}
-    # parse cover url string looking for certain urls
-    parsed_url = urlparse(cover_url)
-    # check parsed hostname against list
-    return parsed_url.hostname in host_list
-
-
 # A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
 def post_to_collage(torrent_id, cover_url, collage_type):
     global collage_ajax_page
@@ -330,9 +280,38 @@ def loop_delay():
 def url_condition_check(torrent_id, cover_url):
     global cover_missing_error
 
-    # check to see if the site exists
-    site_exists = is_url_valid(cover_url)
-    if site_exists == False:
+    # First check if we should even bother
+
+    host = str(urlparse(cover_url).hostname)
+
+    # Is the host going to give us a crappy image?
+    low_quality_hosts = {"img.photobucket.com", "upload.wikimedia.org"}
+
+    if host in low_quality_hosts:
+        print("--Failure: Cover skipped due to it being on a site that has watermarked or tiny images.")
+        print("--Logged cover as missing cover, image is watermarked or tiny.")
+        log_name = "cover_missing"
+        log_message = "cover was skipped due to it being hosted on a site that has watermarked or tiny images"
+        log_outcomes(torrent_id, cover_url, log_name, log_message)
+        cover_missing_error += 1  # variable will increment every loop iteration
+        # if it is a bad cove host, post it to the bad covers collage
+        collage_type = "bad_covers_collage"
+        post_to_collage(torrent_id, cover_url, collage_type)
+        return False
+
+    # Is the host known to be dead?
+    bad_hosts = {}
+
+    if host in bad_hosts:
+        # TODO: Implement blacklist of known broken hosts
+        assert False
+
+    # We've passed basic checks, try to load the image
+
+    try:
+        r = requests.get(cover_url)  # Here is where im getting the error
+        r.raise_for_status()
+    except requests.exceptions.HTTPError:
         print("--Failure: Cover is no longer on the internet. The site that hosted it is gone.")
         print("--Logged missing cover, site no longer exists.")
         log_name = "cover_missing"
@@ -343,10 +322,20 @@ def url_condition_check(torrent_id, cover_url):
         collage_type = "broken_missing_covers_collage"
         post_to_collage(torrent_id, cover_url, collage_type)
         return False
-    else:
-        # check to see if the cover is known 404 image
-        url_checked = check_404_image(cover_url)
-        if url_checked == True:
+
+    # Is the host returning a bogus image instead of a 404?
+    tricky_hosts: dict[str, str] = {
+        "i.imgur.com": "https://i.imgur.com/removed.png",
+        "imgur.com": "https://i.imgur.com/removed.png",
+        "tinyimg.io": "https://tinyimg.io/notfound",
+    }
+
+    # did we get redirected?
+    if r.history:
+        final_url = r.url
+        print(f"--The url was forwarded to {final_url}")
+
+        if tricky_hosts.get(host) == final_url:
             print("--Failure: Cover is no longer on the internet. It was replaced with a 404 image.")
             print("--Logged album skipped due to bad host.")
             log_name = "cover_missing"
@@ -357,22 +346,8 @@ def url_condition_check(torrent_id, cover_url):
             collage_type = "broken_missing_covers_collage"
             post_to_collage(torrent_id, cover_url, collage_type)
             return False
-        else:
-            # check to see if the cover is hosted on sites with known issues
-            host_checked = check_bad_host(cover_url)
-            if host_checked == True:
-                print("--Failure: Cover skipped due to it being on a site that has watermarked or tiny images.")
-                print("--Logged cover as missing cover, image is watermarked or tiny.")
-                log_name = "cover_missing"
-                log_message = "cover was skipped due to it being hosted on a site that has watermarked or tiny images"
-                log_outcomes(torrent_id, cover_url, log_name, log_message)
-                cover_missing_error += 1  # variable will increment every loop iteration
-                # if it is a bad cove host, post it to the bad covers collage
-                collage_type = "bad_covers_collage"
-                post_to_collage(torrent_id, cover_url, collage_type)
-                return False
-            else:
-                return True
+
+    return True
 
 
 # A function that check if text file exists, loads it, loops through the lines, get id and url
@@ -401,6 +376,7 @@ def loop_rehost():
                     print(f"--The group url is https://redacted.ch/torrents.php?id={torrent_id}")
                     print(f"--The url for the cover art is {cover_url}")
 
+                    # TODO: This issues a GET, and then the ptpimg_uploader does another one inside of rehost_image -- find a way to avoid doubling.
                     # check to see if the site is there and whether the image is a 404 image
                     site_condition = url_condition_check(torrent_id, cover_url)
                     if site_condition:
