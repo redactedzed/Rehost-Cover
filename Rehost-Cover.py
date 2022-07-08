@@ -43,6 +43,20 @@ collage_error = 0
 error_message = 0
 list_error = 0
 
+LOW_QUALITY_HOSTS = {
+    "img.photobucket.com",
+    "upload.wikimedia.org",
+}
+
+BAD_HOSTS = {
+    "115.imagebam.com",
+}
+
+TRICKY_HOSTS: dict[str, str] = {
+    "i.imgur.com": "https://i.imgur.com/removed.png",
+    "imgur.com": "https://i.imgur.com/removed.png",
+    "tinyimg.io": "https://tinyimg.io/notfound",
+}
 
 # A function to log events
 def log_outcomes(torrent_id, cover_url, log_name, message):
@@ -285,9 +299,8 @@ def url_condition_check(torrent_id, cover_url):
     host = str(urlparse(cover_url).hostname)
 
     # Is the host going to give us a crappy image?
-    low_quality_hosts = {"img.photobucket.com", "upload.wikimedia.org"}
 
-    if host in low_quality_hosts:
+    if host in LOW_QUALITY_HOSTS:
         print("--Failure: Cover skipped due to it being on a site that has watermarked or tiny images.")
         print("--Logged cover as missing cover, image is watermarked or tiny.")
         log_name = "cover_missing"
@@ -300,11 +313,17 @@ def url_condition_check(torrent_id, cover_url):
         return False
 
     # Is the host known to be dead?
-    bad_hosts = {}
-
-    if host in bad_hosts:
-        # TODO: Implement blacklist of known broken hosts
-        assert False
+    if host in BAD_HOSTS:
+        print("--Failure: Cover is no longer on the internet. The site that hosted it is gone.")
+        print("--Logged missing cover, site no longer exists.")
+        log_name = "cover_missing"
+        log_message = "cover is no longer on the internet. The site that hosted it is gone"
+        log_outcomes(torrent_id, cover_url, log_name, log_message)
+        cover_missing_error += 1  # variable will increment every loop iteration
+        # if it is a missing image, post it to the missing covers collage
+        collage_type = "broken_missing_covers_collage"
+        post_to_collage(torrent_id, cover_url, collage_type)
+        return False
 
     # We've passed basic checks, try to load the image
 
@@ -323,19 +342,13 @@ def url_condition_check(torrent_id, cover_url):
         post_to_collage(torrent_id, cover_url, collage_type)
         return False
 
-    # Is the host returning a bogus image instead of a 404?
-    tricky_hosts: dict[str, str] = {
-        "i.imgur.com": "https://i.imgur.com/removed.png",
-        "imgur.com": "https://i.imgur.com/removed.png",
-        "tinyimg.io": "https://tinyimg.io/notfound",
-    }
-
     # did we get redirected?
     if r.history:
         final_url = r.url
         print(f"--The url was forwarded to {final_url}")
 
-        if tricky_hosts.get(host) == final_url:
+        # Is the host returning a bogus image instead of a 404?
+        if TRICKY_HOSTS.get(host) == final_url:
             print("--Failure: Cover is no longer on the internet. It was replaced with a 404 image.")
             print("--Logged album skipped due to bad host.")
             log_name = "cover_missing"
