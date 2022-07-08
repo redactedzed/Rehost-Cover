@@ -40,6 +40,18 @@ BAD_HOSTS = {
     "115.imagebam.com",
     "www.pixhoster.info",
     "img4.hostingpics.net",
+    "funkyimg.com",
+    "www.freeimage.us",
+    "imageshwcdn.junodownload.com",
+    "shrani.si",
+    "imghst.co",
+    "i.xomf.com",
+    "i.imgsafe.org",
+    "images.coveralia.com",
+    "www.mele.com",
+    "www.israbox.co",
+    "whatimg.com",
+    "www.newzikstreet.com",
 }
 
 TRICKY_HOSTS: dict[str, str] = {
@@ -78,7 +90,7 @@ class RehostCover:
         self.error_message = 0
         self.list_error = 0
 
-        retry = Retry(connect=3, backoff_factor=0.2)
+        retry = Retry(total=3, backoff_factor=0.2)
         adapter = HTTPAdapter(max_retries=retry)
 
         self.red_session = requests.Session()
@@ -288,18 +300,19 @@ class RehostCover:
 
             mime_type = resp.headers["content-type"]
             if not mime_type or mime_type.split("/")[0] != "image":
-                raise ValueError(f"Unknown image file type {mime_type}")
+                new_cover_url = None
+            else:
 
-            open_file = BytesIO(resp.content)
+                open_file = BytesIO(resp.content)
 
-            files = {"file-upload[]": ("justfilename", open_file, mime_type)}
+                files = {"file-upload[]": ("justfilename", open_file, mime_type)}
 
-            resp = self.ptpimg_session.post(
-                "https://ptpimg.me/upload.php", data={"api_key": P_API_KEY}, files=files, timeout=HTTP_TIMEOUT
-            )
-            resp.raise_for_status()
+                resp = self.ptpimg_session.post(
+                    "https://ptpimg.me/upload.php", data={"api_key": P_API_KEY}, files=files, timeout=HTTP_TIMEOUT
+                )
+                resp.raise_for_status()
 
-            new_cover_url = [f'https://ptpimg.me/{r["code"]}.{r["ext"]}' for r in resp.json()]
+                new_cover_url = [f'https://ptpimg.me/{r["code"]}.{r["ext"]}' for r in resp.json()]
 
             if new_cover_url:
                 new_cover_url = new_cover_url[0].strip()
@@ -323,7 +336,7 @@ class RehostCover:
                 collage_type = "broken_missing_covers_collage"
                 self.post_to_collage(torrent_id, cover_url, collage_type)
 
-        except:  # TODO: Improve exception handler
+        except Exception as err:  # TODO: Improve exception handler
             print("--Failure: There was an issue rehosting the cover art to ptpimg. Please try again later.")
             print("--Logged cover skipped due to an issue connecting to the ptpimg API.")
             log_name = "ptpimg-api-error"
