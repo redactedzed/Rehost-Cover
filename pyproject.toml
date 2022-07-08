@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "rehost-cover"
+version = "0.5"
+description = ""
+authors = ["spinfast319 <105055375+spinfast319@users.noreply.github.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.28.1"
+ptpimg-uploader = "^0.8"
+
+[tool.poetry.dev-dependencies]
+black = "^22.6.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+target-version = ['py310']
+include = '\.pyi?$'
