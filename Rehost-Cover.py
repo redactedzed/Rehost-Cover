@@ -3,10 +3,14 @@
 # A python script to that will rehost a list of cover urls from random image hosts to ptpimg
 
 # Import dependencies
-import os  # Imports functionality that let's you interact with your operating system
+import os  # Imports functionality that lets you interact with your operating system
 import requests  # Imports the ability to make web or api requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+
+from io import BytesIO  # handle downloaded images as in-memory files
+
 import datetime  # Imports functionality that lets you make timestamps
-import ptpimg_uploader  # imports the tool which lets you upload to ptpimg
 import config  # imports the config file where you set your API key, directories, etc
 from csv import DictReader  # For parsing the input CSV file
 from random import randint  # Imports functionality that lets you generate a random number
@@ -25,6 +29,8 @@ COLLAGE_AJAX_PAGE = config.c_site_collage_ajax_page  # imports missing cover art
 R_API_KEY = config.c_r_api_key  # imports your RED api key
 P_API_KEY = config.c_p_api_key  # imports your ptpIMG api key
 
+HTTP_TIMEOUT = 10
+
 LOW_QUALITY_HOSTS = {
     "img.photobucket.com",
     "upload.wikimedia.org",
@@ -32,6 +38,8 @@ LOW_QUALITY_HOSTS = {
 
 BAD_HOSTS = {
     "115.imagebam.com",
+    "www.pixhoster.info",
+    "img4.hostingpics.net",
 }
 
 TRICKY_HOSTS: dict[str, str] = {
@@ -70,6 +78,9 @@ class RehostCover:
         self.error_message = 0
         self.list_error = 0
 
+        retry = Retry(connect=3, backoff_factor=0.2)
+        adapter = HTTPAdapter(max_retries=retry)
+
         self.red_session = requests.Session()
         self.red_session.headers.update(
             {
@@ -77,13 +88,18 @@ class RehostCover:
                 "User-Agent": USER_AGENT,
             }
         )
+        self.red_session.mount("http://", adapter)
+        self.red_session.mount("https://", adapter)
 
         self.ptpimg_session = requests.Session()
         self.ptpimg_session.headers.update(
             {
                 "User-Agent": USER_AGENT,
+                "referer": "https://ptpimg.me/index.php",
             }
         )
+        self.ptpimg_session.mount("http://", adapter)
+        self.ptpimg_session.mount("https://", adapter)
 
         self.host_session = requests.Session()
         self.host_session.headers.update(
@@ -91,6 +107,8 @@ class RehostCover:
                 "User-Agent": USER_AGENT,
             }
         )
+        self.host_session.mount("http://", adapter)
+        self.host_session.mount("https://", adapter)
 
     # A function to log events
     def log_outcomes(self, torrent_id, cover_url, log_name, message):
@@ -100,13 +118,18 @@ class RehostCover:
         log_name = f"{log_name}.txt"
         today = datetime.datetime.now()
         log_path = os.path.join(log_directory, log_name)
-        with open(log_path, "a", encoding="utf-8") as log_name:
-            log_name.write(f"--{today:%b, %d %Y} at {today:%H:%M:%S} from the {script_name}.\n")
-            log_name.write(f"The torrent group {torrent_id} {message}.\n")
-            log_name.write(f"Torrent location: https://redacted.ch/torrents.php?id={torrent_id}\n")
-            log_name.write(f"Cover location: {cover_url}\n")
-            log_name.write(" \n")
-            log_name.close()
+        try:
+            with open(log_path, "a", encoding="utf-8") as log_name:
+                log_name.write(f"--{today:%b, %d %Y} at {today:%H:%M:%S} from the {script_name}.\n")
+                log_name.write(f"The torrent group {torrent_id} {message}.\n")
+                log_name.write(f"Torrent location: https://redacted.ch/torrents.php?id={torrent_id}\n")
+                log_name.write(f"Cover location: {cover_url}\n")
+                log_name.write(" \n")
+                log_name.close()
+        except FileNotFoundError:
+            print(f"--Error: Cannot open {log_name}.")
+            self.list_error += 1  # variable will increment every loop iteration
+            return
 
     # A function that writes a summary of what the script did at the end of the process
     def summary_text(self):
@@ -176,7 +199,7 @@ class RehostCover:
         ajax_page = f"{COLLAGE_AJAX_PAGE}{collage_id}"
         data = {"groupids": torrent_id}
         # post to collage
-        r = self.red_session.post(ajax_page, data=data)
+        r = self.red_session.post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
         # report status
         status = r.json()
         if status["response"]["groupsadded"]:
@@ -214,7 +237,7 @@ class RehostCover:
 
         # replace the cover art link on RED and leave edit summary
         try:
-            r = self.red_session.post(ajax_page, data=data)
+            r = self.red_session.post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
             status = r.json()
             if status["status"] == "success":
                 print(f"--Success: Replacing the cover on RED was a {status['status']}")
@@ -259,14 +282,24 @@ class RehostCover:
             return
 
     # A function that rehosts the cover to ptpimg
-    def rehost_cover(self, torrent_id, cover_url):
-        # TODO: Do this once globally
-        # Instantiate an uploader
-        ptpimg = ptpimg_uploader.PtpimgUploader(api_key=P_API_KEY, timeout=10)
-
+    def rehost_cover(self, torrent_id, cover_url, resp):
         try:
-            # Upload URL
-            new_cover_url = ptpimg.upload_url(cover_url)
+            # Based on https://github.com/theirix/ptpimg-uploader/blob/6f702090806e7e98dbf041789b9e9de1122f84fa/ptpimg_uploader.py#L87
+
+            mime_type = resp.headers["content-type"]
+            if not mime_type or mime_type.split("/")[0] != "image":
+                raise ValueError(f"Unknown image file type {mime_type}")
+
+            open_file = BytesIO(resp.content)
+
+            files = {"file-upload[]": ("justfilename", open_file, mime_type)}
+
+            resp = self.ptpimg_session.post(
+                "https://ptpimg.me/upload.php", data={"api_key": P_API_KEY}, files=files, timeout=HTTP_TIMEOUT
+            )
+            resp.raise_for_status()
+
+            new_cover_url = [f'https://ptpimg.me/{r["code"]}.{r["ext"]}' for r in resp.json()]
 
             if new_cover_url:
                 new_cover_url = new_cover_url[0].strip()
@@ -309,8 +342,6 @@ class RehostCover:
 
     # A function to check a series of conditions on the cover url before it is attempted to be rehosted.
     def url_condition_check(self, torrent_id, cover_url):
-        global cover_missing_error
-
         # First check if we should even bother
 
         host = str(urlparse(cover_url).hostname)
@@ -345,11 +376,9 @@ class RehostCover:
         # We've passed basic checks, try to load the image
 
         try:
-            r = self.host_session.get(
-                cover_url,
-            )  # Here is where im getting the error
+            r = self.host_session.get(cover_url, timeout=HTTP_TIMEOUT)  # Here is where im getting the error
             r.raise_for_status()
-        except requests.exceptions.HTTPError:
+        except (requests.exceptions.HTTPError, requests.exceptions.SSLError, requests.exceptions.ConnectionError):
             print("--Failure: Cover is no longer on the internet. The site that hosted it is gone.")
             print("--Logged missing cover, site no longer exists.")
             log_name = "cover_missing"
@@ -373,13 +402,13 @@ class RehostCover:
                 log_name = "cover_missing"
                 log_message = "cover is no longer on the internet. It was replaced with a 404 image"
                 self.log_outcomes(torrent_id, cover_url, log_name, log_message)
-                cover_missing_error += 1  # variable will increment every loop iteration
+                self.cover_missing_error += 1  # variable will increment every loop iteration
                 # if it is a 404 image, post it to the missing covers collage
                 collage_type = "broken_missing_covers_collage"
                 self.post_to_collage(torrent_id, cover_url, collage_type)
                 return False
 
-        return True
+        return r
 
     # A function that check if text file exists, loads it, loops through the lines, get id and url
     def loop_rehost(self):
@@ -404,12 +433,13 @@ class RehostCover:
                         print(f"--The group url is https://redacted.ch/torrents.php?id={torrent_id}")
                         print(f"--The url for the cover art is {cover_url}")
 
-                        # TODO: This issues a GET, and then the ptpimg_uploader does another one inside of rehost_image -- find a way to avoid doubling.
                         # check to see if the site is there and whether the image is a 404 image
                         site_condition = self.url_condition_check(torrent_id, cover_url)
                         if site_condition:
                             # run the rehost cover function passing it the torrent_id and cover_url
-                            new_cover_url = self.rehost_cover(torrent_id, cover_url)
+                            new_cover_url = self.rehost_cover(
+                                torrent_id, cover_url, site_condition
+                            )  # This looks awful. Kludge to pass the response until we can refactor more.
                             # trigger function to post cover to RED
                             if new_cover_url:
                                 self.post_to_RED(torrent_id, new_cover_url, cover_url)
