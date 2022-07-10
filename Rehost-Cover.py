@@ -54,6 +54,7 @@ BAD_HOSTS = {
     "www.israbox.co",
     "whatimg.com",
     "www.newzikstreet.com",
+    "assets.audiomack.com"
 }
 
 TRICKY_HOSTS: dict[str, str] = {
@@ -317,7 +318,7 @@ class RehostCover:
         try:
             # Based on https://github.com/theirix/ptpimg-uploader/blob/6f702090806e7e98dbf041789b9e9de1122f84fa/ptpimg_uploader.py#L87
 
-            mime_type = resp.headers["content-type"]
+            mime_type = resp.headers.get("content-type")
             if not mime_type or mime_type.split("/")[0] != "image":
                 new_cover_url = None
             else:
@@ -410,7 +411,7 @@ class RehostCover:
         try:
             r = self.host_session.get(cover_url, timeout=HTTP_TIMEOUT)  # Here is where im getting the error
             r.raise_for_status()
-        except (requests.exceptions.HTTPError, requests.exceptions.SSLError, requests.exceptions.ConnectionError):
+        except (requests.exceptions.HTTPError, requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.TooManyRedirects):
             print("--Failure: Cover is no longer on the internet. The site that hosted it is gone.")
             print("--Logged missing cover, site no longer exists.")
             log_name = "cover_missing"
