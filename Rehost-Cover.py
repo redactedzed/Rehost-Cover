@@ -17,6 +17,8 @@ import requests  # Imports the ability to make web or api requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
+from ratelimit import limits, sleep_and_retry
+
 import config  # imports the config file where you set your API key, directories, etc
 
 # Before running this script install the dependencies
@@ -226,6 +228,11 @@ class RehostCover:
         else:
             print("There were no errors.")
 
+    @sleep_and_retry
+    @limits(calls=5, period=10)
+    def red_session_ratelimited(self):
+        return self.red_session
+
     # A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
     def post_to_collage(self, torrent_id, collage_type):
         # assign collage ID, name and URL
@@ -242,7 +249,7 @@ class RehostCover:
         ajax_page = f"{COLLAGE_AJAX_PAGE}{collage_id}"
         data = {"groupids": torrent_id}
         # post to collage
-        r = self.red_session.post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
+        r = self.red_session_ratelimited().post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
         r.raise_for_status()
         # report status
         status = r.json()
@@ -277,8 +284,8 @@ class RehostCover:
 
         # replace the cover art link on RED and leave edit summary
         try:
-            r = self.red_session.post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
-            r.raise_for_status()
+            r = self.red_session_ratelimited().post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
+            # r.raise_for_status()
             status = r.json()
             if status["status"] == "success":
                 self.logger.log(Facility.RED_API, Severity.INFO, "Replacing cover art URL on RED succeeded.")
@@ -412,7 +419,7 @@ class RehostCover:
             self.count_rehosted += 1
 
             # introduce a delay after the first cover is rehosted
-            self.loop_delay()
+            # self.loop_delay()
 
 
 # The main function that controls the flow of the script
