@@ -3,22 +3,21 @@
 # A python script to that will rehost a list of cover urls from random image hosts to ptpimg
 
 # Import dependencies
-import os  # Imports functionality that lets you interact with your operating system
-import sys
-from enum import Enum, unique, auto, IntEnum
+import datetime  # Timestamps
+import os  # OS-specific file paths
+import sys  # References to STDOUT/STDERR
+from csv import DictReader  # For parsing the input CSV file
+from enum import Enum, IntEnum, unique, auto  # Enumeration types
+from io import BytesIO, TextIOWrapper  # handle downloaded images as in-memory files, log file handles
+from random import randint  # Imports functionality that lets you generate a random number
+from time import sleep  # Imports functionality that lets you pause your script for a set period of time
+from urllib.parse import urlparse  # URL parsing
 
 import requests  # Imports the ability to make web or api requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
 
-from io import BytesIO, TextIOWrapper  # handle downloaded images as in-memory files
-
-import datetime  # Imports functionality that lets you make timestamps
 import config  # imports the config file where you set your API key, directories, etc
-from csv import DictReader  # For parsing the input CSV file
-from random import randint  # Imports functionality that lets you generate a random number
-from time import sleep  # Imports functionality that lets you pause your script for a set period of time
-from urllib.parse import urlparse
 
 # Before running this script install the dependencies
 # pip install ptpimg_uploader
