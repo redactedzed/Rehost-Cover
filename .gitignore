@@ -1,5 +1,7 @@
 config.py
 list.txt
+list.csv
+log.txt
 __pycache__/
 Old_Code/
 Old_Lists/

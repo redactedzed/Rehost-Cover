@@ -4,7 +4,6 @@
 
 # Import dependencies
 import datetime  # Timestamps
-import os  # OS-specific file paths
 import sys  # References to STDOUT/STDERR
 from csv import DictReader  # For parsing the input CSV file
 from enum import Enum, IntEnum, unique, auto  # Enumeration types
@@ -21,54 +20,8 @@ from ratelimit import limits, sleep_and_retry
 
 import config  # imports the config file where you set your API key, directories, etc
 
-# Before running this script install the dependencies
-# pip install ptpimg_uploader
-# pip install pyperclip
-
 SCRIPT_NAME = "Rehost Cover Script"
-
 USER_AGENT = "Rehost-Cover-Script/0.5"
-
-# Imports site and API information from config file
-SITE_AJAX_PAGE = config.c_site_ajax_page  # imports gazelle ajax page
-COLLAGE_AJAX_PAGE = config.c_site_collage_ajax_page  # imports missing cover art collage ajax page
-R_API_KEY = config.c_r_api_key  # imports your RED api key
-P_API_KEY = config.c_p_api_key  # imports your ptpIMG api key
-
-HTTP_TIMEOUT = 20
-
-LOW_QUALITY_HOSTS = {
-    "img.photobucket.com",
-    "upload.wikimedia.org",
-}
-
-BAD_HOSTS = {
-    "images.junostatic.com",
-    "115.imagebam.com",
-    "www.pixhoster.info",
-    "img4.hostingpics.net",
-    "funkyimg.com",
-    "www.freeimage.us",
-    "imageshwcdn.junodownload.com",
-    "shrani.si",
-    "imghst.co",
-    "i.xomf.com",
-    "i.imgsafe.org",
-    "images.coveralia.com",
-    "www.mele.com",
-    "www.israbox.co",
-    "whatimg.com",
-    "www.newzikstreet.com",
-    "assets.audiomack.com",
-    "upload.ouliu.net",
-    "mp3fast.org"
-}
-
-TRICKY_HOSTS: dict[str, str] = {
-    "i.imgur.com": "https://i.imgur.com/removed.png",
-    "imgur.com": "https://i.imgur.com/removed.png",
-    "tinyimg.io": "https://tinyimg.io/notfound",
-}
 
 
 @unique
@@ -98,14 +51,12 @@ class Logger:
     logfile: TextIOWrapper
 
     def __init__(self):
-        self.log_directory = config.c_log_directory  # imports the directory path to where you want to write your logs
-
         self.counters = {}
         for facility in Facility:
             self.counters[facility] = [0] * len(Severity)
 
         try:
-            self.logfile = open(os.path.join(self.log_directory, "log.txt"), "a", encoding="utf-8")
+            self.logfile = open(config.LOG_PATH, "a", encoding="utf-8")
         except FileNotFoundError:
             print("--Error: Cannot open log.txt", sys.stderr)
             exit(-1)
@@ -144,7 +95,7 @@ class RehostCover:
         self.red_session = requests.Session()
         self.red_session.headers.update(
             {
-                "Authorization": R_API_KEY,
+                "Authorization": config.RED_API_KEY,
                 "User-Agent": USER_AGENT,
             }
         )
@@ -170,12 +121,9 @@ class RehostCover:
         self.host_session.mount("http://", adapter)
         self.host_session.mount("https://", adapter)
 
-        # assemble list path
-        list_path = os.path.join(config.c_list_directory, "list.txt")
-
         # open the txt file
         try:
-            self.reader = DictReader(open(list_path, encoding="utf-8"), dialect="unix")
+            self.reader = DictReader(open(config.LIST_PATH, encoding="utf-8"), dialect="unix")
         except FileNotFoundError:
             print("--Error: The list.txt file is missing.")
             exit(-1)
@@ -249,10 +197,10 @@ class RehostCover:
             raise ValueError(f"{collage_type} not defined.")
 
         # create the ajax page and data
-        ajax_page = f"{COLLAGE_AJAX_PAGE}{collage_id}"
+        ajax_page = f"{config.RED_COLLAGE_AJAX}{collage_id}"
         data = {"groupids": torrent_id}
         # post to collage
-        r = self.red_session_ratelimited().post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
+        r = self.red_session_ratelimited().post(ajax_page, data=data, timeout=config.HTTP_TIMEOUT)
         r.raise_for_status()
         # report status
         status = r.json()
@@ -281,13 +229,15 @@ class RehostCover:
         cover_url = original_cover_url
 
         # create the ajax page and data
-        ajax_page = f"{SITE_AJAX_PAGE}{torrent_id}"
+        ajax_page = f"{config.RED_GROUPEDIT_AJAX}{torrent_id}"
         edit_message = "Automatically rehosted cover to PTPimg"
         data = {"summary": edit_message, "image": new_cover_url}
 
         # replace the cover art link on RED and leave edit summary
         try:
-            r: requests.Response = self.red_session_ratelimited().post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
+            r: requests.Response = self.red_session_ratelimited().post(
+                ajax_page, data=data, timeout=config.HTTP_TIMEOUT
+            )
             # r.raise_for_status()
 
             # Were we redirected because the TG no longer exists?
@@ -336,7 +286,10 @@ class RehostCover:
             files = {"file-upload[]": ("justfilename", open_file, resp.headers.get("content-type"))}
 
             resp = self.ptpimg_session.post(
-                "https://ptpimg.me/upload.php", data={"api_key": P_API_KEY}, files=files, timeout=HTTP_TIMEOUT
+                "https://ptpimg.me/upload.php",
+                data={"api_key": config.PTPIMG_API_KEY},
+                files=files,
+                timeout=config.HTTP_TIMEOUT,
             )
             resp.raise_for_status()
 
@@ -363,7 +316,7 @@ class RehostCover:
 
     def get_cover_image(self, cover_url):
         try:
-            r = self.host_session.get(cover_url, timeout=HTTP_TIMEOUT)  # Here is where im getting the error
+            r = self.host_session.get(cover_url, timeout=config.HTTP_TIMEOUT)  # Here is where im getting the error
             r.raise_for_status()
         except (
             requests.exceptions.HTTPError,
@@ -400,13 +353,13 @@ class RehostCover:
             host = str(urlparse(cover_url).hostname)
 
             # Is the host known to give us a crappy image?
-            if host in LOW_QUALITY_HOSTS:
+            if host in config.LOW_QUALITY_HOSTS:
                 self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known low-quality host.")
                 self.post_to_collage(torrent_id, "lowquality")
                 continue
 
             # Is the host known to be dead?
-            if host in BAD_HOSTS:
+            if host in config.BAD_HOSTS:
                 self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known dead host.")
                 self.post_to_collage(torrent_id, "broken")
                 continue
@@ -424,7 +377,7 @@ class RehostCover:
                 self.logger.log(Facility.COVER, Severity.DEBUG, f"Followed redirects to {final_url}")
 
                 # Is the host returning a bogus image instead of a 404?
-                if TRICKY_HOSTS.get(host) == final_url:
+                if config.TRICKY_HOSTS.get(host) == final_url:
                     self.logger.log(Facility.COVER, Severity.WARNING, "Host redirected us to a known bogus 404 image.")
                     self.post_to_collage(torrent_id, "broken")
                     continue
