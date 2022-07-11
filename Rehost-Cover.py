@@ -35,7 +35,7 @@ COLLAGE_AJAX_PAGE = config.c_site_collage_ajax_page  # imports missing cover art
 R_API_KEY = config.c_r_api_key  # imports your RED api key
 P_API_KEY = config.c_p_api_key  # imports your ptpIMG api key
 
-HTTP_TIMEOUT = 10
+HTTP_TIMEOUT = 20
 
 LOW_QUALITY_HOSTS = {
     "img.photobucket.com",
@@ -60,6 +60,8 @@ BAD_HOSTS = {
     "whatimg.com",
     "www.newzikstreet.com",
     "assets.audiomack.com",
+    "upload.ouliu.net",
+    "mp3fast.org"
 }
 
 TRICKY_HOSTS: dict[str, str] = {
@@ -115,8 +117,8 @@ class Logger:
 
         stream = sys.stdout if severity >= Severity.WARNING else sys.stderr  # Severity values are inverted
         logstr = f"{ts} {facility.name} {severity.name} {message}"
-        print(logstr, file=stream)
-        self.logfile.write(logstr)
+        print(logstr, file=stream, flush=True)
+        self.logfile.write(logstr + "\n")
 
 
 class RehostCover:
@@ -136,7 +138,7 @@ class RehostCover:
 
         self.logger = Logger()
 
-        retry = Retry(total=3, backoff_factor=0.2)
+        retry = Retry(total=3, backoff_factor=0.2, respect_retry_after_header=False)
         adapter = HTTPAdapter(max_retries=retry)
 
         self.red_session = requests.Session()
@@ -289,7 +291,6 @@ class RehostCover:
             status = r.json()
             if status["status"] == "success":
                 self.logger.log(Facility.RED_API, Severity.INFO, "Replacing cover art URL on RED succeeded.")
-                self.count_rehosted += 1
             elif status["error"] == "No changes detected.":
                 self.logger.log(
                     Facility.RED_API,
@@ -302,8 +303,8 @@ class RehostCover:
                     Severity.WARNING,
                     f"Replacing cover art URL on RED failed. Status: {status['status']}",
                 )
-        except Exception as e:
-            self.logger.log(Facility.RED_API, Severity.ERROR, f"Replacing cover art URL on RED failed. {e}")
+        except Exception as err:
+            self.logger.log(Facility.RED_API, Severity.ERROR, f"Replacing cover art URL on RED failed. {err}")
         return
 
     # A function that rehosts the cover to ptpimg
