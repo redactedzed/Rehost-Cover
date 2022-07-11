@@ -4,6 +4,9 @@
 
 # Import dependencies
 import os  # Imports functionality that lets you interact with your operating system
+import sys
+from enum import Enum, unique, auto, IntEnum
+
 import requests  # Imports the ability to make web or api requests
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
@@ -39,6 +42,7 @@ LOW_QUALITY_HOSTS = {
 }
 
 BAD_HOSTS = {
+    "images.junostatic.com",
     "115.imagebam.com",
     "www.pixhoster.info",
     "img4.hostingpics.net",
@@ -54,7 +58,7 @@ BAD_HOSTS = {
     "www.israbox.co",
     "whatimg.com",
     "www.newzikstreet.com",
-    "assets.audiomack.com"
+    "assets.audiomack.com",
 }
 
 TRICKY_HOSTS: dict[str, str] = {
@@ -64,48 +68,60 @@ TRICKY_HOSTS: dict[str, str] = {
 }
 
 
-class Logger:
-    logs: dict[str, TextIOWrapper]
+@unique
+class Facility(Enum):
+    COLLAGE = auto()
+    RED_API = auto()
+    PTPIMG_API = auto()
+    COVER = auto()
 
+
+@unique
+class Severity(IntEnum):
+    EMERGENCY = 0
+    ALERT = 1
+    CRITICAL = 2
+    ERROR = 3
+    WARNING = 4
+    NOTICE = 5
+    INFO = 6
+    DEBUG = 7
+
+
+class Logger:
     log_directory: str
+    counters: dict[Facility, list[int]]
+
+    logfile: TextIOWrapper
 
     def __init__(self):
         self.log_directory = config.c_log_directory  # imports the directory path to where you want to write your logs
 
-    # A function to log events
-    def log_outcomes(self, torrent_id, cover_url, log_name, message):
-        log = self.logs.get(log_name)
-        if not log:
-            try:
-                log = open(os.path.join(self.log_directory, f"{log_name}.txt"), "a", encoding="utf-8")
-            except FileNotFoundError:
-                print(f"--Error: Cannot open {log_name}.")
-                exit(-1)
-            self.logs[log_name] = log
+        self.counters = {}
+        for facility in Facility:
+            self.counters[facility] = [0] * len(Severity)
 
-        today = datetime.datetime.now()
-        log.write(f"--{today:%b, %d %Y} at {today:%H:%M:%S} from the {SCRIPT_NAME}.\n")
-        log.write(f"The torrent group {torrent_id} {message}.\n")
-        log.write(f"Torrent location: https://redacted.ch/torrents.php?id={torrent_id}\n")
-        log.write(f"Cover location: {cover_url}\n")
-        log.write(" \n")
+        try:
+            self.logfile = open(os.path.join(self.log_directory, "log.txt"), "a", encoding="utf-8")
+        except FileNotFoundError:
+            print("--Error: Cannot open log.txt", sys.stderr)
+            exit(-1)
 
-    def __del__(self):
-        for log in self.logs.values():
-            log.close()
+    def log(self, facility: Facility, severity: Severity, message: str):
+        ts = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+
+        self.counters[facility][severity.value] += 1
+
+        stream = sys.stdout if severity >= Severity.WARNING else sys.stderr  # Severity values are inverted
+        logstr = f"{ts} {facility.name} {severity.name} {message}"
+        print(logstr, file=stream)
+        self.logfile.write(logstr)
 
 
 class RehostCover:
     # Establishes the counters for completed covers and errors
-    count: int
-    total_count: int
-    RED_api_error: int
-    ptpimg_api_error: int
-    RED_replace_error: int
-    cover_missing_error: int
-    collage_message: int
-    collage_error: int
-    error_message: int
+    count_rehosted: int
+    count_total: int
 
     red_session: requests.Session
     ptpimg_session: requests.Session
@@ -114,15 +130,8 @@ class RehostCover:
     reader: DictReader
 
     def __init__(self):
-        self.count = 0
-        self.total_count = 0
-        self.RED_api_error = 0
-        self.ptpimg_api_error = 0
-        self.RED_replace_error = 0
-        self.cover_missing_error = 0
-        self.collage_message = 0
-        self.collage_error = 0
-        self.error_message = 0
+        self.count_rehosted = 0
+        self.count_total = 0
 
         self.logger = Logger()
 
@@ -171,92 +180,92 @@ class RehostCover:
     # A function that writes a summary of what the script did at the end of the process
     def summary_text(self):
         print("")
-        print(f"This script rehosted {self.count} album covers out of {self.total_count} covers.")
+        print(f"This script rehosted {self.count_rehosted} album covers out of {self.count_total} covers.")
         print("")
 
-        level = "Warning" if self.RED_replace_error else "Info"
-        print(f"--{level}: There were {self.RED_replace_error} cover urls that failed being added to RED.")
+        errors = False
 
-        level = "Warning" if self.RED_api_error else "Info"
-        print(f"--{level}: There were {self.RED_api_error} covers skipped due to errors with the RED api.")
+        for fac in Facility:
+            for sev in Severity:
+                if sev == Severity.DEBUG:
+                    continue
+                if not self.logger.counters[fac][sev.value]:
+                    continue
+                if sev <= Severity.ERROR:  # Less than means error or worse -- values are inverted.
+                    errors = True
 
-        level = "Warning" if self.ptpimg_api_error else "Info"
-        print(
-            f"--{level}: There were {self.ptpimg_api_error} covers skipped due to the covers no longer being on the internet or errors with the ptpimg api."
-        )
+                print(f"{fac.name} {sev.name}: {self.logger.counters[fac][sev.value]}")
 
-        level = "Warning" if self.cover_missing_error else "Info"
-        print(
-            f"--{level}: There were {self.cover_missing_error} covers skipped due to the covers no longer being on the internet or being a 404 image."
-        )
+        # level = "Warning" if self.RED_replace_error else "Info"
+        # print(f"--{level}: There were {self.RED_replace_error} cover urls that failed being added to RED.")
+        #
+        # level = "Warning" if self.RED_api_error else "Info"
+        # print(f"--{level}: There were {self.RED_api_error} covers skipped due to errors with the RED api.")
+        #
+        # level = "Warning" if self.ptpimg_api_error else "Info"
+        # print(
+        #     f"--{level}: There were {self.ptpimg_api_error} covers skipped due to the covers no longer being on the internet or errors with the ptpimg api."
+        # )
+        #
+        # level = "Warning" if self.cover_missing_error else "Info"
+        # print(
+        #     f"--{level}: There were {self.cover_missing_error} covers skipped due to the covers no longer being on the internet or being a 404 image."
+        # )
+        #
+        # level = "Warning" if self.collage_message else "Info"
+        # print(
+        #     f"--{level}: There were {self.collage_message} albums added to a collage due to missing or bad cover art."
+        # )
+        #
+        # level = "Warning" if self.collage_error else "Info"
+        # print(
+        #     f"--{level}: There were {self.collage_error} albums that had missing or bad cover art but adding them a collage failed."
+        # )
 
-        level = "Warning" if self.collage_message else "Info"
-        print(
-            f"--{level}: There were {self.collage_message} albums added to a collage due to missing or bad cover art."
-        )
-
-        level = "Warning" if self.collage_error else "Info"
-        print(
-            f"--{level}: There were {self.collage_error} albums that had missing or bad cover art but adding them a collage failed."
-        )
-
-        if any(
-            [
-                self.RED_replace_error,
-                self.RED_api_error,
-                self.ptpimg_api_error,
-                self.cover_missing_error,
-                self.collage_message,
-                self.collage_error,
-            ]
-        ):
+        if errors:
             print("Check the logs to see which torrents and covers had errors and what they were.")
         else:
             print("There were no errors.")
 
-
     # A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
-    def post_to_collage(self, torrent_id, cover_url, collage_type):
+    def post_to_collage(self, torrent_id, collage_type):
         # assign collage ID, name and URL
-        if collage_type == "broken_missing_covers_collage":
-            collage_id = "31445"
-            collage_name = "'Torrents with broken cover art links'"
+        if collage_type == "broken":
+            collage_id = "31445"  # Torrents with broken cover art links
             collage_url = f"https://redacted.ch/collages.php?id={collage_id}"
-        elif collage_type == "bad_covers_collage":
-            collage_id = "31735"
-            collage_name = "'Torrents with poor quality cover art images'"
+        elif collage_type == "lowquality":
+            collage_id = "31735"  # Torrents with poor quality cover art images
             collage_url = f"https://redacted.ch/collages.php?id={collage_id}"
+        else:
+            raise ValueError(f"{collage_type} not defined.")
 
         # create the ajax page and data
         ajax_page = f"{COLLAGE_AJAX_PAGE}{collage_id}"
         data = {"groupids": torrent_id}
         # post to collage
         r = self.red_session.post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
+        r.raise_for_status()
         # report status
         status = r.json()
+
         if status["response"]["groupsadded"]:
-            print(f"--Adding release to the {collage_name} collage was a success.")
-            print(f"--Logged cover being added to {collage_name}.")
-            log_name = "collage_added"
-            log_message = f"had bad or missing art and was added to the {collage_name} collage. \nCollage Location: {collage_url}\nTorrent info below"
-            self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-            self.collage_message += 1  # variable will increment every loop iteration
-        elif status["response"]["groupsduplicated"]:
-            print(
-                f"--Error: Adding release to {collage_name} collage was a failure, the album was already in the collage."
+            self.logger.log(
+                Facility.COLLAGE,
+                Severity.INFO,
+                f"Torrent {torrent_id} had broken cover art. Successfully added to {collage_url}",
             )
-            print(f"--Logged cover failing to be added to {collage_name} due to it already being in the collage.")
-            log_name = "collage_fail"
-            log_message = f"had bad or missing art and failed to be added to the {collage_name} due to it already being in the collage. \nCollage Location: {collage_url}\nTorrent info below"
-            self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-            self.collage_error += 1  # variable will increment every loop iteration
+        elif status["response"]["groupsduplicated"]:
+            self.logger.log(
+                Facility.COLLAGE,
+                Severity.NOTICE,
+                f"Torrent {torrent_id} had broken cover art. It was already in {collage_url}",
+            )
         else:
-            print(f"--Error: Adding release to {collage_name} collage was a failure.")
-            print(f"--Logged cover failing to be added to {collage_name}.")
-            log_name = "collage_fail"
-            log_message = f"had bad or missing art and failed to be added to the {collage_name}. \nCollage Location: {collage_url}\nTorrent info below"
-            self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-            self.collage_error += 1  # variable will increment every loop iteration
+            self.logger.log(
+                Facility.COLLAGE,
+                Severity.WARNING,
+                f"Torrent {torrent_id} had broken cover art. Adding to {collage_url} failed.",
+            )
 
     # A function that replaces the existing cover art on RED with the newly hosted one
     def post_to_RED(self, torrent_id, new_cover_url, original_cover_url):
@@ -270,176 +279,79 @@ class RehostCover:
         # replace the cover art link on RED and leave edit summary
         try:
             r = self.red_session.post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
+            r.raise_for_status()
             status = r.json()
             if status["status"] == "success":
-                print(f"--Success: Replacing the cover on RED was a {status['status']}")
-                self.count += 1  # variable will increment every loop iteration
+                self.logger.log(Facility.RED_API, Severity.INFO, "Replacing cover art URL on RED succeeded.")
+                self.count_rehosted += 1
             elif status["error"] == "No changes detected.":
-                print(f"--Failure: Replacing the cover on RED was a {status['status']}")
-                print("--This album has already had it's cover replaced on RED.")
-                print("--Logged cover being skipped due to already having been replaced.")
-                log_name = "RED_api_error"
-                log_message = "has already had it's cover replaced on RED."
-                self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-                self.RED_replace_error += 1  # variable will increment every loop iteration
+                self.logger.log(
+                    Facility.RED_API,
+                    Severity.NOTICE,
+                    "Replacing cover art URL on RED failed. It has already been replaced.",
+                )
             else:
-                print(f"--Failure: Replacing the cover on RED was a {status['status']}")
-                print(
-                    "--There was an issue connecting to or interacting with the RED API. If it is unstable, please try again later."
+                self.logger.log(
+                    Facility.RED_API,
+                    Severity.WARNING,
+                    f"Replacing cover art URL on RED failed. Status: {status['status']}",
                 )
-                print("--Logged cover skipped due failed upload to RED.")
-                log_name = "RED_api_error"
-                log_message = (
-                    "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
-                )
-                self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-                # if it is a missing image, post it to the missing covers collage
-                collage_type = "broken_missing_covers_collage"
-                self.post_to_collage(torrent_id, cover_url, collage_type)
-                self.RED_replace_error += 1  # variable will increment every loop iteration
-        except:
-            print(
-                "--Failure: There was an issue connecting to or interacting with the RED API. Please try again later."
-            )
-            print("--Logged cover skipped due to an issue connecting to the RED API.")
-            log_name = "RED_api_error"
-            log_message = (
-                "There may have been an issue connecting to the RED API. If it is unstable, please try again later"
-            )
-            self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-            # if it is a missing image, post it to the missing covers collage
-            collage_type = "broken_missing_covers_collage"
-            self.post_to_collage(torrent_id, cover_url, collage_type)
-            self.RED_api_error += 1  # variable will increment every loop iteration
-            return
+        except Exception as e:
+            self.logger.log(Facility.RED_API, Severity.ERROR, f"Replacing cover art URL on RED failed. {e}")
+        return
 
     # A function that rehosts the cover to ptpimg
     def rehost_cover(self, torrent_id, cover_url, resp):
         try:
             # Based on https://github.com/theirix/ptpimg-uploader/blob/6f702090806e7e98dbf041789b9e9de1122f84fa/ptpimg_uploader.py#L87
 
-            mime_type = resp.headers.get("content-type")
-            if not mime_type or mime_type.split("/")[0] != "image":
-                new_cover_url = None
-            else:
+            open_file = BytesIO(resp.content)
 
-                open_file = BytesIO(resp.content)
+            files = {"file-upload[]": ("justfilename", open_file, resp.headers.get("content-type"))}
 
-                files = {"file-upload[]": ("justfilename", open_file, mime_type)}
+            resp = self.ptpimg_session.post(
+                "https://ptpimg.me/upload.php", data={"api_key": P_API_KEY}, files=files, timeout=HTTP_TIMEOUT
+            )
+            resp.raise_for_status()
 
-                resp = self.ptpimg_session.post(
-                    "https://ptpimg.me/upload.php", data={"api_key": P_API_KEY}, files=files, timeout=HTTP_TIMEOUT
-                )
-                resp.raise_for_status()
-
-                new_cover_url = [f'https://ptpimg.me/{r["code"]}.{r["ext"]}' for r in resp.json()]
+            new_cover_url = [f'https://ptpimg.me/{r["code"]}.{r["ext"]}' for r in resp.json()]
 
             if new_cover_url:
                 new_cover_url = new_cover_url[0].strip()
-                print(f"--The cover has been rehosted at {new_cover_url}")
+                self.logger.log(Facility.PTPIMG_API, Severity.INFO, f"The cover has been rehosted at {new_cover_url}")
                 return new_cover_url
-
             else:
-                print(
-                    "--Failure: The cover was missing from the internet. Please replace the image manually. If the image is there, then the site resisted being scraped or there was an issue connecting to or interacting with PTPimg."
-                )
-                print(
-                    "--Logged cover skipped due to it being no longer on the internet or there being an issue connecting to the ptpimg API."
-                )
-                log_name = "cover_missing"
-                log_message = "albums cover is missing from the internet or the site is blocking scraping images. Please replace the image manually. If the image is there, it is possible that it was skipped due to an issue connecting to the ptpimg API. Please try again later"
-                self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-                self.ptpimg_api_error += 1  # variable will increment every loop iteration
-
-                # TODO: This collage logic feels like it belongs elsewhere
-                # if it is a missing image, post it to the missing covers collage
-                collage_type = "broken_missing_covers_collage"
-                self.post_to_collage(torrent_id, cover_url, collage_type)
+                self.logger.log(Facility.PTPIMG_API, Severity.ERROR, f"Failed to rehost cover art to ptpimg.")
 
         except Exception as err:  # TODO: Improve exception handler
-            print("--Failure: There was an issue rehosting the cover art to ptpimg. Please try again later.")
-            print("--Logged cover skipped due to an issue connecting to the ptpimg API.")
-            log_name = "ptpimg-api-error"
-            log_message = "was skipped due to an issue connecting to the ptpimg API. Please try again later"
-            self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-            self.ptpimg_api_error += 1  # variable will increment every loop iteration
+            self.logger.log(Facility.PTPIMG_API, Severity.ERROR, f"Failed to rehost the cover art to ptpimg. {err}")
 
         return
 
     # A function to introduce a random delay into the loop to reduce the chance of being blocked for web scraping.
     def loop_delay(self):
-        if self.count >= 1:
+        if self.count_rehosted >= 1:
             delay = randint(1, 3)  # Generate a random number of seconds within this range
-            print(f"The script is pausing for {delay} seconds.")
+            self.logger.log(Facility.COVER, Severity.DEBUG, f"Sleeping {delay}s")
             sleep(delay)  # Delay the script randomly to reduce anti-web scraping blocks
 
-    # A function to check a series of conditions on the cover url before it is attempted to be rehosted.
-    def url_condition_check(self, torrent_id, cover_url):
-        # First check if we should even bother
-
-        host = str(urlparse(cover_url).hostname)
-
-        # Is the host going to give us a crappy image?
-
-        if host in LOW_QUALITY_HOSTS:
-            print("--Failure: Cover skipped due to it being on a site that has watermarked or tiny images.")
-            print("--Logged cover as missing cover, image is watermarked or tiny.")
-            log_name = "cover_missing"
-            log_message = "cover was skipped due to it being hosted on a site that has watermarked or tiny images"
-            self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-            self.cover_missing_error += 1  # variable will increment every loop iteration
-            # if it is a bad cove host, post it to the bad covers collage
-            collage_type = "bad_covers_collage"
-            self.post_to_collage(torrent_id, cover_url, collage_type)
-            return False
-
-        # Is the host known to be dead?
-        if host in BAD_HOSTS:
-            print("--Failure: Cover is no longer on the internet. The site that hosted it is gone.")
-            print("--Logged missing cover, site no longer exists.")
-            log_name = "cover_missing"
-            log_message = "cover is no longer on the internet. The site that hosted it is gone"
-            self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-            self.cover_missing_error += 1  # variable will increment every loop iteration
-            # if it is a missing image, post it to the missing covers collage
-            collage_type = "broken_missing_covers_collage"
-            self.post_to_collage(torrent_id, cover_url, collage_type)
-            return False
-
-        # We've passed basic checks, try to load the image
-
+    def get_cover_image(self, cover_url):
         try:
             r = self.host_session.get(cover_url, timeout=HTTP_TIMEOUT)  # Here is where im getting the error
             r.raise_for_status()
-        except (requests.exceptions.HTTPError, requests.exceptions.SSLError, requests.exceptions.ConnectionError, requests.exceptions.TooManyRedirects):
-            print("--Failure: Cover is no longer on the internet. The site that hosted it is gone.")
-            print("--Logged missing cover, site no longer exists.")
-            log_name = "cover_missing"
-            log_message = "cover is no longer on the internet. The site that hosted it is gone"
-            self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-            self.cover_missing_error += 1  # variable will increment every loop iteration
-            # if it is a missing image, post it to the missing covers collage
-            collage_type = "broken_missing_covers_collage"
-            self.post_to_collage(torrent_id, cover_url, collage_type)
-            return False
+        except (
+            requests.exceptions.HTTPError,
+            requests.exceptions.SSLError,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.TooManyRedirects,
+        ) as err:
+            self.logger.log(Facility.COVER, Severity.WARNING, f"Failed to get image. 404-like exception.")
+            return
 
-        # did we get redirected?
-        if r.history:
-            final_url = r.url
-            print(f"--The url was forwarded to {final_url}")
-
-            # Is the host returning a bogus image instead of a 404?
-            if TRICKY_HOSTS.get(host) == final_url:
-                print("--Failure: Cover is no longer on the internet. It was replaced with a 404 image.")
-                print("--Logged album skipped due to bad host.")
-                log_name = "cover_missing"
-                log_message = "cover is no longer on the internet. It was replaced with a 404 image"
-                self.logger.log_outcomes(torrent_id, cover_url, log_name, log_message)
-                self.cover_missing_error += 1  # variable will increment every loop iteration
-                # if it is a 404 image, post it to the missing covers collage
-                collage_type = "broken_missing_covers_collage"
-                self.post_to_collage(torrent_id, cover_url, collage_type)
-                return False
+        mime_type = r.headers.get("content-type")
+        if not mime_type or mime_type.split("/")[0] != "image":
+            self.logger.log(Facility.COVER, Severity.WARNING, "Failed to get image. Invalid content-type.")
+            return
 
         return r
 
@@ -450,22 +362,55 @@ class RehostCover:
 
             torrent_id: int = int(line["ID"])
             cover_url: str = line["WikiImage"].strip()
-            print("")
-            print("Rehosting:")
-            self.total_count += 1  # variable will increment every loop iteration
-            print(f"--The group url is https://redacted.ch/torrents.php?id={torrent_id}")
-            print(f"--The url for the cover art is {cover_url}")
 
-            # check to see if the site is there and whether the image is a 404 image
-            site_condition = self.url_condition_check(torrent_id, cover_url)
-            if site_condition:
-                # run the rehost cover function passing it the torrent_id and cover_url
-                new_cover_url = self.rehost_cover(
-                    torrent_id, cover_url, site_condition
-                )  # This looks awful. Kludge to pass the response until we can refactor more.
-                # trigger function to post cover to RED
-                if new_cover_url:
-                    self.post_to_RED(torrent_id, new_cover_url, cover_url)
+            self.count_total += 1  # variable will increment every loop iteration
+            self.logger.log(
+                Facility.COVER,
+                Severity.DEBUG,
+                f"TG url: https://redacted.ch/torrents.php?id={torrent_id} Cover art URL: {cover_url}",
+            )
+
+            host = str(urlparse(cover_url).hostname)
+
+            # Is the host known to give us a crappy image?
+            if host in LOW_QUALITY_HOSTS:
+                self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known low-quality host.")
+                self.post_to_collage(torrent_id, "lowquality")
+                continue
+
+            # Is the host known to be dead?
+            if host in BAD_HOSTS:
+                self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known dead host.")
+                self.post_to_collage(torrent_id, "broken")
+                continue
+
+            # try to get the image
+            r = self.get_cover_image(cover_url)
+
+            if not r:
+                self.post_to_collage(torrent_id, "broken")
+                continue
+
+            # did we get redirected?
+            if r.history:
+                final_url = r.url
+                self.logger.log(Facility.COVER, Severity.DEBUG, f"Followed redirects to {final_url}")
+
+                # Is the host returning a bogus image instead of a 404?
+                if TRICKY_HOSTS.get(host) == final_url:
+                    self.logger.log(Facility.COVER, Severity.WARNING, "Host redirected us to a known bogus 404 image.")
+                    self.post_to_collage(torrent_id, "broken")
+                    continue
+
+            # We got a good image! Let's rehost it
+            new_cover_url = self.rehost_cover(torrent_id, cover_url, r)
+            if not new_cover_url:
+                continue
+
+            # Rehosted successfully, tell RED about it
+            self.post_to_RED(torrent_id, new_cover_url, cover_url)
+
+            self.count_rehosted += 1
 
             # introduce a delay after the first cover is rehosted
             self.loop_delay()
@@ -476,19 +421,20 @@ def main():
     rehost = RehostCover()
     try:
         # intro text
-        print("")
+        print()
         print("You spin me right 'round, baby, right 'round...")
 
         # Run the function to loop through the list.txt file and rehost the cover art
         rehost.loop_rehost()
-
+    except KeyboardInterrupt:
+        print("Exiting due to KeyboardInterrupt...")
     finally:
         # Summary text
-        print("")
+        print()
         print("Like a record, baby, right 'round, 'round, 'round...")
         # run summary text function to provide error messages
         rehost.summary_text()
-        print("")
+        print()
 
 
 if __name__ == "__main__":
