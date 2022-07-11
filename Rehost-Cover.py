@@ -116,7 +116,7 @@ class Logger:
         self.counters[facility][severity.value] += 1
 
         stream = sys.stdout if severity >= Severity.WARNING else sys.stderr  # Severity values are inverted
-        logstr = f"{ts} {facility.name} {severity.name} {message}"
+        logstr = f"{ts} {facility.name:>10} {severity.name:>7} {message}"
         print(logstr, file=stream, flush=True)
         self.logfile.write(logstr + "\n")
 
@@ -197,7 +197,7 @@ class RehostCover:
                 if sev <= Severity.ERROR:  # Less than means error or worse -- values are inverted.
                     errors = True
 
-                print(f"{fac.name} {sev.name}: {self.logger.counters[fac][sev.value]}")
+                print(f"{fac.name:>10} {sev.name:>7}: {self.logger.counters[fac][sev.value]}")
 
         # level = "Warning" if self.RED_replace_error else "Info"
         # print(f"--{level}: There were {self.RED_replace_error} cover urls that failed being added to RED.")
@@ -225,6 +225,7 @@ class RehostCover:
         #     f"--{level}: There were {self.collage_error} albums that had missing or bad cover art but adding them a collage failed."
         # )
 
+        print()
         if errors:
             print("Check the logs to see which torrents and covers had errors and what they were.")
         else:
