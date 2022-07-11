@@ -366,6 +366,7 @@ class RehostCover:
     def loop_rehost(self):
 
         for line in self.reader:
+            print("\n", flush=True)
 
             torrent_id: int = int(line["ID"])
             cover_url: str = line["WikiImage"].strip()
