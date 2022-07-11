@@ -233,7 +233,7 @@ class RehostCover:
 
     @sleep_and_retry
     @limits(calls=5, period=10)
-    def red_session_ratelimited(self):
+    def red_session_ratelimited(self) -> requests.Session:
         return self.red_session
 
     # A function to add albums that have broken cover art to the -Torrents with broken cover art links- collage
@@ -287,26 +287,44 @@ class RehostCover:
 
         # replace the cover art link on RED and leave edit summary
         try:
-            r = self.red_session_ratelimited().post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
+            r: requests.Response = self.red_session_ratelimited().post(ajax_page, data=data, timeout=HTTP_TIMEOUT)
             # r.raise_for_status()
+
+            # Were we redirected because the TG no longer exists?
+            if r.status_code == 401 and r.url.startswith("https://redacted.ch/log.php?search="):
+                self.logger.log(
+                    Facility.RED_API,
+                    Severity.NOTICE,
+                    "Replacing cover art URL on RED failed. Torrent group has been deleted.",
+                )
+                return False
+
             status = r.json()
+
             if status["status"] == "success":
                 self.logger.log(Facility.RED_API, Severity.INFO, "Replacing cover art URL on RED succeeded.")
+                return True
             elif status["error"] == "No changes detected.":
                 self.logger.log(
                     Facility.RED_API,
                     Severity.NOTICE,
                     "Replacing cover art URL on RED failed. It has already been replaced.",
                 )
+            elif status["error"] == "No Torrent Group Found":
+                self.logger.log(
+                    Facility.RED_API,
+                    Severity.NOTICE,
+                    "Replacing cover art URL on RED failed. Torrent group has been deleted.",
+                )
             else:
                 self.logger.log(
                     Facility.RED_API,
                     Severity.WARNING,
-                    f"Replacing cover art URL on RED failed. Status: {status['status']}",
+                    f"Replacing cover art URL on RED failed. Status: {status['status']}: {status['status']['error']}",
                 )
         except Exception as err:
             self.logger.log(Facility.RED_API, Severity.ERROR, f"Replacing cover art URL on RED failed. {err}")
-        return
+        return False
 
     # A function that rehosts the cover to ptpimg
     def rehost_cover(self, torrent_id, cover_url, resp):
@@ -417,7 +435,8 @@ class RehostCover:
                 continue
 
             # Rehosted successfully, tell RED about it
-            self.post_to_RED(torrent_id, new_cover_url, cover_url)
+            if not self.post_to_RED(torrent_id, new_cover_url, cover_url):
+                continue
 
             self.count_rehosted += 1
 
