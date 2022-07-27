@@ -58,7 +58,7 @@ class Logger:
         try:
             self.logfile = open(config.LOG_PATH, "a", encoding="utf-8")
         except FileNotFoundError:
-            print("--Error: Cannot open log.txt", sys.stderr)
+            print(f"--Error: Cannot open {config.LOG_PATH}", sys.stderr)
             exit(-1)
 
     def log(self, facility: Facility, severity: Severity, message: str):
@@ -125,7 +125,7 @@ class RehostCover:
         try:
             self.reader = DictReader(open(config.LIST_PATH, encoding="utf-8"), dialect="unix")
         except FileNotFoundError:
-            print("--Error: The list.txt file is missing.")
+            print(f"--Error: Cannot open {config.LIST_PATH}")
             exit(-1)
 
     # A function that writes a summary of what the script did at the end of the process
@@ -314,7 +314,7 @@ class RehostCover:
             self.logger.log(Facility.COVER, Severity.DEBUG, f"Sleeping {delay}s")
             sleep(delay)  # Delay the script randomly to reduce anti-web scraping blocks
 
-    def get_cover_image(self, cover_url):
+    def get_cover_image(self, cover_url: str):
         try:
             r = self.host_session.get(cover_url, timeout=config.HTTP_TIMEOUT)  # Here is where im getting the error
             r.raise_for_status()
@@ -323,6 +323,7 @@ class RehostCover:
             requests.exceptions.SSLError,
             requests.exceptions.ConnectionError,
             requests.exceptions.TooManyRedirects,
+            requests.exceptions.ContentDecodingError
         ) as err:
             self.logger.log(Facility.COVER, Severity.WARNING, f"Failed to get image. 404-like exception.")
             return
@@ -405,7 +406,7 @@ def main():
         print()
         print("You spin me right 'round, baby, right 'round...")
 
-        # Run the function to loop through the list.txt file and rehost the cover art
+        # Run the function to loop through the list file and rehost the cover art
         rehost.loop_rehost()
     except KeyboardInterrupt:
         print("Exiting due to KeyboardInterrupt...")
