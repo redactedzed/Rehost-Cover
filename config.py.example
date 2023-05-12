@@ -1,0 +1,63 @@
+# Rehost Cover Configuration File
+# author: hypermodified
+# Set your API keys, ajaxpage and directories here to use with Rehost Cover
+
+# Set your directories here
+LIST_PATH = "list.csv"  # Where is the list of albums with covers that need rehosting?
+LOG_PATH = "log.txt"  # Where do you want to log albums that have issues rehosting the covers?
+
+
+# Set your site and API information here
+RED_GROUPEDIT_AJAX = "https://redacted.ch/ajax.php?action=groupedit&id="  # set the gazelle ajax page here
+RED_COLLAGE_AJAX = "https://redacted.ch/ajax.php?action=addtocollage&collageid="  # set the gazelle collage ajax page here
+RED_API_KEY = ""  # set your RED api key here
+PTPIMG_API_KEY = ""  # set your ptpIMG api key here
+
+HTTP_TIMEOUT = 20
+
+LOW_QUALITY_HOSTS = {
+    "img.photobucket.com",
+    "upload.wikimedia.org",
+}
+
+BAD_HOSTS = {
+    "images.junostatic.com",
+    "115.imagebam.com",
+    "www.pixhoster.info",
+    "img4.hostingpics.net",
+    "funkyimg.com",
+    "www.freeimage.us",
+    "imageshwcdn.junodownload.com",
+    "shrani.si",
+    "imghst.co",
+    "i.xomf.com",
+    "i.imgsafe.org",
+    "images.coveralia.com",
+    "www.mele.com",
+    "www.israbox.co",
+    "whatimg.com",
+    "www.newzikstreet.com",
+    "assets.audiomack.com",
+    "upload.ouliu.net",
+    "mp3fast.org"
+}
+
+TRICKY_HOSTS: dict[str, str] = {
+    "i.imgur.com": "https://i.imgur.com/removed.png",
+    "imgur.com": "https://i.imgur.com/removed.png",
+    "tinyimg.io": "https://tinyimg.io/notfound",
+}
+
+#example configuration
+'''
+# Set your directories here
+LIST_PATH = "M:\Music\Albums\list.csv" # Where is the list of albums with covers that need rehosting?
+LOG_PATH = "M:\Music\Logs\log.txt" # Where do you want to log albums that have issues rehosting the covers?
+
+# Set your site and API information here
+RED_GROUPEDIT_AJAX = "https://redacted.ch/ajax.php?action=groupedit&id=" # set the gazelle ajax page here
+RED_COLLAGE_AJAX = "https://redacted.ch/ajax.php?action=addtocollage&collageid=" # set the gazelle collage ajax page here
+RED_API_KEY = "d64bq2l9.t256n539742x33120h9s5623h3615471" # set your RED api key here
+PTPIMG_API_KEY = "g56643k-35h7-3d1d-5sf5-69h22562q992" # set your ptpIMG api key here
+'''
+
