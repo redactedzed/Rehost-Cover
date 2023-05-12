@@ -323,7 +323,7 @@ class RehostCover:
             requests.exceptions.SSLError,
             requests.exceptions.ConnectionError,
             requests.exceptions.TooManyRedirects,
-            requests.exceptions.ContentDecodingError
+            requests.exceptions.ContentDecodingError,
         ) as err:
             self.logger.log(Facility.COVER, Severity.WARNING, f"Failed to get image. 404-like exception. {err}")
             return
