@@ -22,7 +22,7 @@ from ratelimit import limits, sleep_and_retry
 import config  # imports the config file where you set your API key, directories, etc
 
 SCRIPT_NAME = "Rehost Cover Script"
-USER_AGENT = "Rehost-Cover-Script/0.5"
+USER_AGENT = "Rehost-Cover-Script/0.6"
 
 
 @unique
