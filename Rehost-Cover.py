@@ -7,9 +7,10 @@ import datetime  # Timestamps
 import sys  # References to STDOUT/STDERR
 from csv import DictReader  # For parsing the input CSV file
 from enum import Enum, IntEnum, unique, auto  # Enumeration types
-from io import BytesIO, TextIOWrapper  # handle downloaded images as in-memory files, log file handles
+from io import BytesIO  # handle downloaded images as in-memory files
 from random import randint  # Imports functionality that lets you generate a random number
 from time import sleep  # Imports functionality that lets you pause your script for a set period of time
+from typing import TextIO
 from urllib.parse import urlparse  # URL parsing
 
 import requests  # Imports the ability to make web or api requests
@@ -48,7 +49,7 @@ class Logger:
     log_directory: str
     counters: dict[Facility, list[int]]
 
-    logfile: TextIOWrapper
+    logfile: TextIO
 
     def __init__(self):
         self.counters = {}
@@ -225,8 +226,7 @@ class RehostCover:
             )
 
     # A function that replaces the existing cover art on RED with the newly hosted one
-    def post_to_RED(self, torrent_id, new_cover_url, original_cover_url):
-        cover_url = original_cover_url
+    def post_to_RED(self, torrent_id, new_cover_url):
 
         # create the ajax page and data
         ajax_page = f"{config.RED_GROUPEDIT_AJAX}{torrent_id}"
@@ -277,7 +277,7 @@ class RehostCover:
         return False
 
     # A function that rehosts the cover to ptpimg
-    def rehost_cover(self, torrent_id, cover_url, resp):
+    def rehost_cover(self, resp):
         try:
             # Based on https://github.com/theirix/ptpimg-uploader/blob/6f702090806e7e98dbf041789b9e9de1122f84fa/ptpimg_uploader.py#L87
 
@@ -325,7 +325,7 @@ class RehostCover:
             requests.exceptions.TooManyRedirects,
             requests.exceptions.ContentDecodingError
         ) as err:
-            self.logger.log(Facility.COVER, Severity.WARNING, f"Failed to get image. 404-like exception.")
+            self.logger.log(Facility.COVER, Severity.WARNING, f"Failed to get image. 404-like exception. {err}")
             return
 
         mime_type = r.headers.get("content-type")
@@ -384,12 +384,12 @@ class RehostCover:
                     continue
 
             # We got a good image! Let's rehost it
-            new_cover_url = self.rehost_cover(torrent_id, cover_url, r)
+            new_cover_url = self.rehost_cover(r)
             if not new_cover_url:
                 continue
 
             # Rehosted successfully, tell RED about it
-            if not self.post_to_RED(torrent_id, new_cover_url, cover_url):
+            if not self.post_to_RED(torrent_id, new_cover_url):
                 continue
 
             self.count_rehosted += 1
