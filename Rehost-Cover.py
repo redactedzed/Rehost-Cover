@@ -12,6 +12,9 @@ from random import randint  # Imports functionality that lets you generate a ran
 from time import sleep  # Imports functionality that lets you pause your script for a set period of time
 from typing import TextIO
 from urllib.parse import urlparse  # URL parsing
+from pathlib import Path
+import argparse
+import mysql.connector
 
 import requests  # Imports the ability to make web or api requests
 from requests.adapters import HTTPAdapter
@@ -83,8 +86,12 @@ class RehostCover:
     host_session: requests.Session
 
     reader: DictReader
+    args: argparse.Namespace
+    cnx: mysql.connector.connection_cext.CMySQLConnection
 
-    def __init__(self):
+    def __init__(self, args: argparse.Namespace):
+        self.args = args
+
         self.count_rehosted = 0
         self.count_total = 0
 
@@ -227,7 +234,6 @@ class RehostCover:
 
     # A function that replaces the existing cover art on RED with the newly hosted one
     def post_to_RED(self, torrent_id, new_cover_url):
-
         # create the ajax page and data
         ajax_page = f"{config.RED_GROUPEDIT_AJAX}{torrent_id}"
         edit_message = "Automatically rehosted cover to PTPimg"
@@ -335,72 +341,209 @@ class RehostCover:
 
         return r
 
+    def walk_database_table(self, table_name):
+        if table_name == "cover_art":
+            key_field: str = "ID"
+            update_field: str = "Image"
+
+        else:
+            return
+
+        query = f"""
+            SELECT
+            {key_field},
+            {update_field}
+            FROM {table_name}
+            WHERE 1=1
+            AND {update_field} != ''
+            AND {update_field} NOT LIKE 'https://ptpimg.me/%'
+        """
+
+        update_query = f"""
+            UPDATE {table_name}
+            SET {update_field} = %({update_field})s
+            WHERE {key_field} = %({key_field})s
+        """
+
+        data_to_update = []
+
+        try:
+            cursor = self.cnx.cursor(dictionary=True)
+
+            cursor.execute(query)
+
+            for row in cursor.fetchall():
+                print("\n", flush=True)
+
+                cover_url: str = row[update_field].strip()
+                key: int = int(row[key_field])
+
+                self.count_total += 1  # variable will increment every loop iteration
+                self.logger.log(
+                    Facility.COVER,
+                    Severity.DEBUG,
+                    f"{table_name}; key: {key} / url: {cover_url}",
+                )
+
+                host = str(urlparse(cover_url).hostname)
+
+                # Is the host known to give us a crappy image?
+                if host in config.LOW_QUALITY_HOSTS:
+                    self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known low-quality host.")
+                    continue
+
+                # Is the host known to be dead?
+                if host in config.BAD_HOSTS:
+                    self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known dead host.")
+                    continue
+
+                # try to get the image
+                r = self.get_cover_image(cover_url)
+
+                if not r:
+                    continue
+
+                # did we get redirected?
+                if r.history:
+                    final_url = r.url
+                    self.logger.log(Facility.COVER, Severity.DEBUG, f"Followed redirects to {final_url}")
+
+                    # Is the host returning a bogus image instead of a 404?
+                    if config.TRICKY_HOSTS.get(host) == final_url:
+                        self.logger.log(
+                            Facility.COVER, Severity.WARNING, "Host redirected us to a known bogus 404 image."
+                        )
+                        continue
+
+                # We got a good image! Let's rehost it
+                new_cover_url = self.rehost_cover(r)
+                if not new_cover_url:
+                    continue
+
+                data_to_update.append({key_field: row[key_field], update_field: new_cover_url})
+
+        except mysql.connector.Error as err:
+            print(err)
+        finally:
+            cursor.close()
+
+        if len(data_to_update) == 0:
+            return
+
+        try:
+            cursor = self.cnx.cursor(dictionary=True)
+
+            cursor.executemany(update_query, data_to_update)
+
+            self.cnx.commit()
+
+            self.count_rehosted += cursor.rowcount
+
+        except mysql.connector.Error as err:
+            print(err)
+            self.cnx.rollback()
+        finally:
+            cursor.close()
+
     # A function that check if text file exists, loads it, loops through the lines, get id and url
     def loop_rehost(self):
+        if self.args.mode == "database_poll":
+            self.cnx = mysql.connector.connect(**config.DB_CREDS)
+            self.walk_database_table("cover_art")
 
-        for line in self.reader:
-            print("\n", flush=True)
+        if self.args.mode == "csv_import":
+            for line in self.reader:
+                torrent_id: int = int(line["ID"])
 
-            torrent_id: int = int(line["ID"])
-            cover_url: str = line["WikiImage"].strip()
+                if len(sys.argv) == 3:
+                    if torrent_id > int(sys.argv[2]) or torrent_id < int(sys.argv[1]):
+                        continue
 
-            self.count_total += 1  # variable will increment every loop iteration
-            self.logger.log(
-                Facility.COVER,
-                Severity.DEBUG,
-                f"TG url: https://redacted.ch/torrents.php?id={torrent_id} Cover art URL: {cover_url}",
-            )
+                fp_cache: Path = Path("done") / str(torrent_id)
 
-            host = str(urlparse(cover_url).hostname)
+                if fp_cache.exists():
+                    continue
 
-            # Is the host known to give us a crappy image?
-            if host in config.LOW_QUALITY_HOSTS:
-                self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known low-quality host.")
-                self.post_to_collage(torrent_id, "lowquality")
-                continue
+                print("\n", flush=True)
 
-            # Is the host known to be dead?
-            if host in config.BAD_HOSTS:
-                self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known dead host.")
-                self.post_to_collage(torrent_id, "broken")
-                continue
+                cover_url: str = line["WikiImage"].strip()
 
-            # try to get the image
-            r = self.get_cover_image(cover_url)
+                self.count_total += 1  # variable will increment every loop iteration
+                self.logger.log(
+                    Facility.COVER,
+                    Severity.DEBUG,
+                    f"TG url: https://redacted.ch/torrents.php?id={torrent_id} Cover art URL: {cover_url}",
+                )
 
-            if not r:
-                self.post_to_collage(torrent_id, "broken")
-                continue
+                host = str(urlparse(cover_url).hostname)
 
-            # did we get redirected?
-            if r.history:
-                final_url = r.url
-                self.logger.log(Facility.COVER, Severity.DEBUG, f"Followed redirects to {final_url}")
+                # Is the host known to give us a crappy image?
+                if host in config.LOW_QUALITY_HOSTS:
+                    self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known low-quality host.")
+                    self.post_to_collage(torrent_id, "lowquality")
+                    fp_cache.touch()
+                    continue
 
-                # Is the host returning a bogus image instead of a 404?
-                if config.TRICKY_HOSTS.get(host) == final_url:
-                    self.logger.log(Facility.COVER, Severity.WARNING, "Host redirected us to a known bogus 404 image.")
+                # Is the host known to be dead?
+                if host in config.BAD_HOSTS:
+                    self.logger.log(Facility.COVER, Severity.NOTICE, f"Skipping due to known dead host.")
+                    self.post_to_collage(torrent_id, "broken")
+                    fp_cache.touch()
+                    continue
+
+                # try to get the image
+                r = self.get_cover_image(cover_url)
+
+                if not r:
                     self.post_to_collage(torrent_id, "broken")
                     continue
 
-            # We got a good image! Let's rehost it
-            new_cover_url = self.rehost_cover(r)
-            if not new_cover_url:
-                continue
+                # did we get redirected?
+                if r.history:
+                    final_url = r.url
+                    self.logger.log(Facility.COVER, Severity.DEBUG, f"Followed redirects to {final_url}")
 
-            # Rehosted successfully, tell RED about it
-            if not self.post_to_RED(torrent_id, new_cover_url):
-                continue
+                    # Is the host returning a bogus image instead of a 404?
+                    if config.TRICKY_HOSTS.get(host) == final_url:
+                        self.logger.log(
+                            Facility.COVER, Severity.WARNING, "Host redirected us to a known bogus 404 image."
+                        )
+                        self.post_to_collage(torrent_id, "broken")
+                        fp_cache.touch()
+                        continue
 
-            self.count_rehosted += 1
+                # We got a good image! Let's rehost it
+                new_cover_url = self.rehost_cover(r)
+                if not new_cover_url:
+                    continue
 
-            # introduce a delay after the first cover is rehosted
-            # self.loop_delay()
+                fp_cache.touch()
+
+                # Rehosted successfully, tell RED about it
+                if not self.post_to_RED(torrent_id, new_cover_url):
+                    continue
+
+                self.count_rehosted += 1
+
+                # introduce a delay after the first cover is rehosted
+                # self.loop_delay()
 
 
 # The main function that controls the flow of the script
 def main():
-    rehost = RehostCover()
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--mode",
+        choices=[
+            "csv_import",
+            "database_poll",
+        ],
+        default="csv_import",
+    )
+    args = parser.parse_args()
+
+    rehost = RehostCover(args)
     try:
         # intro text
         print()

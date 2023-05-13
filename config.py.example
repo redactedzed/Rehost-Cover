@@ -48,6 +48,13 @@ TRICKY_HOSTS: dict[str, str] = {
     "tinyimg.io": "https://tinyimg.io/notfound",
 }
 
+DB_CREDS = {
+    "host": "1.2.3.4",
+    "user": "user",
+    "password": "password",
+    "database": "database",
+}
+
 #example configuration
 '''
 # Set your directories here
